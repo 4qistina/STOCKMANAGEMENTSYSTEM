@@ -3,22 +3,23 @@
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
+import AddToCartControl from "@/src/app/components/AddToCartControl";
 
 interface User {
+  userId: number;
   userFullname: string;
   username: string;
   role: string;
 }
 
-// Updated to perfectly match your PostgreSQL database schema
 interface Product {
-  productID?: number;       // Changed from productId to match PG column "productID"
-  productCode?: string;     // Matches "productCode"
-  productModel?: string;    // Changed from productName to match "productModel"
-  productPrice?: number;    // Changed from price to match "productPrice"
-  handInStock?: number;     // Changed from stockQuantity to match "handInStock"
-  productImage?: string;    // Matches "productImage"
-  productStatus?: string;   // Added to track active status if needed
+  productID?: number;
+  productCode?: string;
+  productModel?: string;
+  productPrice?: number;
+  handInStock?: number;
+  productImage?: string;
+  productStatus?: string;
   categoryName?: string;
   brandName?: string;
 }
@@ -33,18 +34,15 @@ interface ProductBrand {
   productBrand: string;
 }
 
-// ---- API Config ----
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 const CATEGORY_ENDPOINT = `${API_BASE}/api/categories`;
 const BRAND_ENDPOINT = `${API_BASE}/api/brands`;
-// --------------------
 
 function ProductListingContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // Read current active filters from URL params
   const activeCategoryId = searchParams.get("category");
   const activeBrandId = searchParams.get("brand");
   const activeSearchQuery = searchParams.get("search");
@@ -52,11 +50,9 @@ function ProductListingContent() {
   const [user, setUser] = useState<User | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
 
-  // Products State
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
 
-  // Lookup lists, used only to resolve the active category/brand IDs to display names
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [brands, setBrands] = useState<ProductBrand[]>([]);
 
@@ -84,7 +80,7 @@ function ProductListingContent() {
     }
   }, [router]);
 
-  // --- Fetch category/brand lookups so the filter bar can show names instead of IDs ---
+  // --- Fetch category/brand lookups ---
   useEffect(() => {
     let cancelled = false;
 
@@ -112,7 +108,7 @@ function ProductListingContent() {
     };
   }, []);
 
-  // --- Fetch Products matching your Controller's searchProduct endpoint ---
+  // --- Fetch Products ---
   useEffect(() => {
     if (checkingAuth || !user) return;
 
@@ -150,11 +146,6 @@ function ProductListingContent() {
     fetchFilteredProducts();
   }, [checkingAuth, user, activeCategoryId, activeBrandId, activeSearchQuery]);
 
-  function handleLogout() {
-    localStorage.removeItem("user");
-    router.replace("/login");
-  }
-
   function clearAllFilters() {
     router.push(pathname);
   }
@@ -169,7 +160,6 @@ function ProductListingContent() {
 
   const hasActiveFilters = activeCategoryId || activeBrandId || activeSearchQuery;
 
-  // Resolve the active IDs to display names; fall back to the raw ID while lookups are still loading
   const activeCategoryName =
     categories.find((c) => c.prodCatLookupId.toString() === activeCategoryId)?.productCategory ??
     activeCategoryId;
@@ -180,7 +170,7 @@ function ProductListingContent() {
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_20%_0%,#f4f8fb_0%,#e9f1f7_55%,#dfebf3_100%)] px-5 py-8 sm:px-8 font-sans text-slate-700">
       <div className="mx-auto max-w-7xl">
-        
+
         {/* Header section */}
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -269,11 +259,10 @@ function ProductListingContent() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {products.map((p, index) => {
-              // Ensure we fallback safely to index if database ID is null
               const cardKey = p.productID ?? `product-index-${index}`;
               const targetProductId = p.productID ?? 0;
 
-              const currentStock = p.handInStock ?? 0; // Updated to match database model
+              const currentStock = p.handInStock ?? 0;
               const isLowStock = currentStock <= 5;
               const isOutOfStock = currentStock === 0;
 
@@ -303,7 +292,6 @@ function ProductListingContent() {
                       </svg>
                     )}
 
-                    {/* Stock Tags */}
                     {isOutOfStock ? (
                       <span className="absolute left-2.5 top-2.5 rounded-md bg-rose-600 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-white">
                         Out of Stock
@@ -315,19 +303,25 @@ function ProductListingContent() {
                     ) : null}
                   </div>
 
-                  {/* Metadata fields */}
-                  <div className="flex items-center gap-1.5 font-mono text-[10px] text-slate-400">
+                  {/* Metadata fields: Category, Brand, Code */}
+                  <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] text-slate-400">
+                    {p.categoryName && (
+                      <>
+                        <span className="uppercase tracking-wide text-slate-500">{p.categoryName}</span>
+                        <span>•</span>
+                      </>
+                    )}
                     <span className="uppercase text-sky-600 font-semibold">{p.brandName ?? "Generic"}</span>
                     <span>•</span>
                     <span className="truncate">{p.productCode ?? "N/A"}</span>
                   </div>
 
-                  {/* Product Title - Now uses productModel */}
+                  {/* Product Title */}
                   <h3 className="mt-1 line-clamp-2 min-h-[38px] text-[14px] font-bold text-slate-800 transition group-hover:text-sky-700">
                     {p.productModel ?? "Unnamed Product"}
                   </h3>
 
-                  {/* Price & Detail Link - Now uses productPrice */}
+                  {/* Price & Detail Link */}
                   <div className="mt-4 flex items-end justify-between border-t border-slate-100 pt-3">
                     <div>
                       <p className="text-[10px] text-slate-400 uppercase tracking-wider font-mono">Price</p>
@@ -354,6 +348,19 @@ function ProductListingContent() {
                       </svg>
                     </Link>
                   </div>
+
+                  {/* Add to Cart — enforces E1 (unavailable) and E2 (invalid quantity) */}
+                  <AddToCartControl
+                    product={{
+                      productID: targetProductId,
+                      productCode: p.productCode,
+                      productModel: p.productModel,
+                      productPrice: Number(p.productPrice ?? 0),
+                      productImage: p.productImage,
+                      handInStock: currentStock,
+                      productStatus: p.productStatus,
+                    }}
+                  />
                 </div>
               );
             })}

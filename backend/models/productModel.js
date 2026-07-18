@@ -1,8 +1,15 @@
 const pool = require('../configuration/db');
 
-// Retrieve all products (automatically includes "productImage" via SELECT *)
+// Retrieve all products, joined with category/brand names so the product menu
+// (use case step 1.2) can display Category, Brand and Model together.
 async function findAll(client = pool) {
-  const result = await client.query('SELECT * FROM products');
+  const result = await client.query(
+    `SELECT p.*, pc."productCategory" AS "categoryName", pb."productBrand" AS "brandName"
+     FROM products p
+     LEFT JOIN prodcat_lookup pc ON pc."prodCatLookupId" = p."prodCatLookupId"
+     LEFT JOIN prodbrand_lookup pb ON pb."prodBrandLookupId" = p."prodBrandLookupId"
+     ORDER BY p."productID"`
+  );
   return result.rows;
 }
 
@@ -15,11 +22,15 @@ async function findById(productID, client = pool) {
 // Search and filter available products by category ID, brand ID, and/or model search term
 async function findAvailable(category, brand, model, client = pool) {
   const result = await client.query(
-    `SELECT p.* FROM products p
+    `SELECT p.*, pc."productCategory" AS "categoryName", pb."productBrand" AS "brandName"
+     FROM products p
+     LEFT JOIN prodcat_lookup pc ON pc."prodCatLookupId" = p."prodCatLookupId"
+     LEFT JOIN prodbrand_lookup pb ON pb."prodBrandLookupId" = p."prodBrandLookupId"
      WHERE p."productStatus" = 'Available'
      AND ($1::int IS NULL OR p."prodCatLookupId" = $1::int)
      AND ($2::int IS NULL OR p."prodBrandLookupId" = $2::int)
-     AND ($3::text IS NULL OR p."productModel" ILIKE '%' || $3 || '%')`,
+     AND ($3::text IS NULL OR p."productModel" ILIKE '%' || $3 || '%')
+     ORDER BY p."productID"`,
     [category || null, brand || null, model || null]
   );
 

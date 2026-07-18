@@ -60,7 +60,7 @@ export default function LoginPage() {
         return;
       }
 
-      localStorage.setItem("user", JSON.stringify(data.user));
+      localStorage.setItem("user", JSON.stringify({ ...data.user, userId: data.user.userID }));
 
       setStatus({ state: "success", message: data.message || "Login successful." });
 

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCart } from "@/src/app/contexts/CartContext";
 
 interface ProductCategory {
   prodCatLookupId: number;
@@ -19,15 +20,16 @@ const CATEGORY_ENDPOINT = `${API_BASE}/api/categories`;
 const BRAND_ENDPOINT = `${API_BASE}/api/brands`;
 
 const SIDEBAR_LINKS = [
-  { label: "Product List", href: "/supervisor" },
-  { label: "View Orders", href: "/supervisor/orders" },
-  { label: "Update Product Stock", href: "/supervisor/products/stock" },
+  { label: "Product List", href: "/products" },
+  { label: "View Orders", href: "/orders" },
+  { label: "Update Product Stock", href: "/products/stock" },
 ];
 
 export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { totalCount } = useCart();
 
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [brands, setBrands] = useState<ProductBrand[]>([]);
@@ -156,6 +158,29 @@ export default function Navbar() {
               />
             </div>
           </form>
+
+          <Link
+            href="/cart"
+            aria-label="View cart"
+            className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-600 transition hover:border-sky-300 hover:bg-sky-400/10 hover:text-sky-700"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              className="h-5 w-5"
+              aria-hidden="true"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.836l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 1.895-4.706 2.298-7.184a1.125 1.125 0 0 0-1.108-1.316H5.213M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+            </svg>
+            {totalCount > 0 && (
+              <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-sky-600 px-1 font-mono text-[10px] font-bold text-white">
+                {totalCount}
+              </span>
+            )}
+          </Link>
 
           <div className="hidden flex-col items-end gap-0.5 sm:flex">
             <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-slate-400">

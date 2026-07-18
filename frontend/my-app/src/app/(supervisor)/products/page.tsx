@@ -3,22 +3,23 @@
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
+import Navbar from "@/src/app/components/Navbar";
 
 interface User {
+  userId: number;
   userFullname: string;
   username: string;
   role: string;
 }
 
-// Updated to perfectly match your PostgreSQL database schema
 interface Product {
-  productID?: number;       // Changed from productId to match PG column "productID"
-  productCode?: string;     // Matches "productCode"
-  productModel?: string;    // Changed from productName to match "productModel"
-  productPrice?: number;    // Changed from price to match "productPrice"
-  handInStock?: number;     // Changed from stockQuantity to match "handInStock"
-  productImage?: string;    // Matches "productImage"
-  productStatus?: string;   // Added to track active status if needed
+  productID?: number;
+  productCode?: string;
+  productModel?: string;
+  productPrice?: number;
+  handInStock?: number;
+  productImage?: string;
+  productStatus?: string;
   categoryName?: string;
   brandName?: string;
 }
@@ -33,18 +34,15 @@ interface ProductBrand {
   productBrand: string;
 }
 
-// ---- API Config ----
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 const CATEGORY_ENDPOINT = `${API_BASE}/api/categories`;
 const BRAND_ENDPOINT = `${API_BASE}/api/brands`;
-// --------------------
 
 function ProductListingContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // Read current active filters from URL params
   const activeCategoryId = searchParams.get("category");
   const activeBrandId = searchParams.get("brand");
   const activeSearchQuery = searchParams.get("search");
@@ -52,11 +50,9 @@ function ProductListingContent() {
   const [user, setUser] = useState<User | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
 
-  // Products State
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
 
-  // Lookup lists, used only to resolve the active category/brand IDs to display names
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [brands, setBrands] = useState<ProductBrand[]>([]);
 
@@ -84,7 +80,7 @@ function ProductListingContent() {
     }
   }, [router]);
 
-  // --- Fetch category/brand lookups so the filter bar can show names instead of IDs ---
+  // --- Fetch category/brand lookups ---
   useEffect(() => {
     let cancelled = false;
 
@@ -112,7 +108,7 @@ function ProductListingContent() {
     };
   }, []);
 
-  // --- Fetch Products matching your Controller's searchProduct endpoint ---
+  // --- Fetch Products ---
   useEffect(() => {
     if (checkingAuth || !user) return;
 
@@ -150,11 +146,6 @@ function ProductListingContent() {
     fetchFilteredProducts();
   }, [checkingAuth, user, activeCategoryId, activeBrandId, activeSearchQuery]);
 
-  function handleLogout() {
-    localStorage.removeItem("user");
-    router.replace("/login");
-  }
-
   function clearAllFilters() {
     router.push(pathname);
   }
@@ -169,7 +160,6 @@ function ProductListingContent() {
 
   const hasActiveFilters = activeCategoryId || activeBrandId || activeSearchQuery;
 
-  // Resolve the active IDs to display names; fall back to the raw ID while lookups are still loading
   const activeCategoryName =
     categories.find((c) => c.prodCatLookupId.toString() === activeCategoryId)?.productCategory ??
     activeCategoryId;
@@ -178,9 +168,10 @@ function ProductListingContent() {
     activeBrandId;
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_20%_0%,#f4f8fb_0%,#e9f1f7_55%,#dfebf3_100%)] px-5 py-8 sm:px-8 font-sans text-slate-700">
-      <div className="mx-auto max-w-7xl">
-        
+    <div className="min-h-screen bg-[radial-gradient(circle_at_20%_0%,#f4f8fb_0%,#e9f1f7_55%,#dfebf3_100%)] font-sans text-slate-700">
+      <Navbar />
+      <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8">
+
         {/* Header section */}
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -269,17 +260,17 @@ function ProductListingContent() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {products.map((p, index) => {
-              // Ensure we fallback safely to index if database ID is null
               const cardKey = p.productID ?? `product-index-${index}`;
               const targetProductId = p.productID ?? 0;
 
-              const currentStock = p.handInStock ?? 0; // Updated to match database model
+              const currentStock = p.handInStock ?? 0;
               const isLowStock = currentStock <= 5;
               const isOutOfStock = currentStock === 0;
 
               return (
-                <div
+                <Link
                   key={cardKey}
+                  href={`/products/${targetProductId}`}
                   className="group relative flex flex-col rounded-2xl border border-slate-200/60 bg-white p-4 shadow-[0_20px_40px_-30px_rgba(51,65,60,0.15)] transition-all duration-300 hover:-translate-y-1 hover:border-sky-300 hover:shadow-[0_22px_45px_-20px_rgba(14,165,233,0.15)]"
                 >
                   {/* Image Holder */}
@@ -303,7 +294,6 @@ function ProductListingContent() {
                       </svg>
                     )}
 
-                    {/* Stock Tags */}
                     {isOutOfStock ? (
                       <span className="absolute left-2.5 top-2.5 rounded-md bg-rose-600 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-white">
                         Out of Stock
@@ -313,21 +303,33 @@ function ProductListingContent() {
                         Low Stock ({currentStock})
                       </span>
                     ) : null}
+
+                    {p.productStatus === "Not Available" && (
+                      <span className="absolute right-2.5 top-2.5 rounded-md bg-slate-600 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-white">
+                        Not Available
+                      </span>
+                    )}
                   </div>
 
-                  {/* Metadata fields */}
-                  <div className="flex items-center gap-1.5 font-mono text-[10px] text-slate-400">
+                  {/* Metadata fields: Category, Brand, Code */}
+                  <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] text-slate-400">
+                    {p.categoryName && (
+                      <>
+                        <span className="uppercase tracking-wide text-slate-500">{p.categoryName}</span>
+                        <span>•</span>
+                      </>
+                    )}
                     <span className="uppercase text-sky-600 font-semibold">{p.brandName ?? "Generic"}</span>
                     <span>•</span>
                     <span className="truncate">{p.productCode ?? "N/A"}</span>
                   </div>
 
-                  {/* Product Title - Now uses productModel */}
+                  {/* Product Title */}
                   <h3 className="mt-1 line-clamp-2 min-h-[38px] text-[14px] font-bold text-slate-800 transition group-hover:text-sky-700">
                     {p.productModel ?? "Unnamed Product"}
                   </h3>
 
-                  {/* Price & Detail Link - Now uses productPrice */}
+                  {/* Price */}
                   <div className="mt-4 flex items-end justify-between border-t border-slate-100 pt-3">
                     <div>
                       <p className="text-[10px] text-slate-400 uppercase tracking-wider font-mono">Price</p>
@@ -336,25 +338,21 @@ function ProductListingContent() {
                       </p>
                     </div>
 
-                    <Link
-                      href={`/supervisor/products/${targetProductId}`}
-                      className="rounded-lg border border-slate-200 bg-white p-2 text-slate-500 hover:border-sky-400 hover:text-sky-600 transition"
-                      title="View Details"
-                    >
+                    <span className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-500 transition group-hover:border-sky-400 group-hover:text-sky-600">
+                      View
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         fill="none"
                         viewBox="0 0 24 24"
-                        strokeWidth="2"
+                        strokeWidth="2.5"
                         stroke="currentColor"
-                        className="h-4 w-4"
+                        className="h-3 w-3"
                       >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                       </svg>
-                    </Link>
+                    </span>
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>

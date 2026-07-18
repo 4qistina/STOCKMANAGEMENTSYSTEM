@@ -1,0 +1,17 @@
+# Dependencies
+**/node_modules/
+
+# Next.js build and development cache
+**/.next/
+frontend/my-app/.next/
+
+# Production build outputs
+**/dist/
+**/build/
+
+# Local environment variables
+.env*.local
+
+# OS files
+.DS_Store
+Thumbs.db

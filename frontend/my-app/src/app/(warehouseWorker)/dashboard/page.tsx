@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 interface User {
   userFullname: string;
@@ -54,10 +55,13 @@ export default function WarehouseStaffDashboard() {
   ];
 
   const quickActions = [
-    { title: "Update Stock", desc: "Log stock in / stock out for products" },
-    { title: "Fulfill Orders", desc: "Update order status as orders are packed" },
-    { title: "Manage Products", desc: "Add, edit, or remove product listings" },
-    { title: "Delivery Info", desc: "Update driver and delivery details" },
+    { title: "Manage Products", desc: "Add, edit, or remove product listings", href: "/warehouse/maintain-products" },
+    { title: "Manage Product Category", desc: "Add, edit, or remove product categories", href: "/warehouse/categories" },
+    { title: "Manage Product Brand", desc: "Add, edit, or remove product brands", href: "/warehouse/brands" },
+    { title: "Update Order Status", desc: "Mark order requests as approved or pending", href: "/warehouse/order-status" },
+    { title: "View Order Details", desc: "See active orders and order history for all Supervisors", href: "/warehouse/orders" },
+    { title: "Manage Driver Information", desc: "Add, edit, or remove delivery drivers", href: "/warehouse/drivers" },
+    { title: "Update Delivery Information", desc: "Assign a driver and confirm delivery", href: "/warehouse/delivery" },
   ];
 
   return (
@@ -102,15 +106,16 @@ export default function WarehouseStaffDashboard() {
         </h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {quickActions.map((a) => (
-            <button
+            <Link
               key={a.title}
+              href={a.href}
               className="rounded-xl border border-slate-200 bg-white p-4 text-left transition hover:border-sky-300 hover:bg-sky-50"
             >
               <p className="font-[Barlow_Condensed,sans-serif] text-base font-semibold text-slate-800">
                 {a.title}
               </p>
               <p className="mt-1 text-[12.5px] text-slate-400">{a.desc}</p>
-            </button>
+            </Link>
           ))}
         </div>
       </div>

@@ -21,8 +21,8 @@ const BRAND_ENDPOINT = `${API_BASE}/api/brands`;
 
 const SIDEBAR_LINKS = [
   { label: "Product List", href: "/products" },
-  { label: "View Orders", href: "/supervisor/orders" },
-  { label: "Update Product Stock", href: "/supervisor/products/stock" },
+  { label: "View Orders", href: "/orders" },
+  { label: "Update Product Stock", href: "/products/stock" },
 ];
 
 export default function Navbar() {

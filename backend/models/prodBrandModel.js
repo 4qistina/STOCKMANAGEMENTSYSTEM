@@ -1,7 +1,8 @@
 const pool = require('../configuration/db');
 
+// Special Requirement: brand list displayed in alphabetical order.
 async function findAll(client = pool) {
-  const result = await client.query('SELECT * FROM prodbrand_lookup');
+  const result = await client.query('SELECT * FROM prodbrand_lookup ORDER BY "productBrand" ASC');
   return result.rows;
 }
 
@@ -9,6 +10,15 @@ async function findById(prodBrandLookupId, client = pool) {
   const result = await client.query(
     'SELECT * FROM prodbrand_lookup WHERE "prodBrandLookupId" = $1',
     [prodBrandLookupId]
+  );
+  return result.rows[0];
+}
+
+// Case-insensitive lookup, used to enforce [E1: Duplicate Item].
+async function findByName(productBrand, client = pool) {
+  const result = await client.query(
+    'SELECT * FROM prodbrand_lookup WHERE LOWER("productBrand") = LOWER($1)',
+    [productBrand]
   );
   return result.rows[0];
 }
@@ -33,4 +43,4 @@ async function remove(prodBrandLookupId, client = pool) {
   await client.query('DELETE FROM prodbrand_lookup WHERE "prodBrandLookupId" = $1', [prodBrandLookupId]);
 }
 
-module.exports = { findAll, findById, insert, update, remove };
+module.exports = { findAll, findById, findByName, insert, update, remove };

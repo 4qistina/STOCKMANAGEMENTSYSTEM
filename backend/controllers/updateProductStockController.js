@@ -25,7 +25,10 @@ async function updateStock(req, res) {
     if (!product) return res.status(404).json({ error: 'Product not found' });
 
     const newStock = req.body.handInStock;
-    if (newStock < 0) return res.status(400).json({ error: 'Stock cannot be negative' });
+    // [E1: Error "Please enter a value greater than 0"]
+    if (newStock === undefined || newStock === null || Number(newStock) <= 0) {
+      return res.status(400).json({ error: 'Please enter a value greater than 0' });
+    }
 
     const updated = await productModel.update(req.params.id, { ...product, handInStock: newStock });
     res.json({ confirmation: 'Stock updated', product: updated });

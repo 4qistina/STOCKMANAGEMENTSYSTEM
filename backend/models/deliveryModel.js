@@ -14,14 +14,16 @@ async function insert({ deliveryDate, recipientName, driverId }) {
   return result.rows[0];
 }
 
-async function update(deliveryId, { deliveryStatus, deliveredDate, driverId }) {
+async function update(deliveryId, { deliveryDate, deliveryStatus, deliveredDate, recipientName, driverId }) {
   const result = await pool.query(
     `UPDATE delivery SET
-      "deliveryStatus" = COALESCE($1, "deliveryStatus"),
-      "deliveredDate" = COALESCE($2, "deliveredDate"),
-      "driverId" = COALESCE($3, "driverId")
-     WHERE "deliveryId" = $4 RETURNING *`,
-    [deliveryStatus, deliveredDate, driverId, deliveryId]
+      "deliveryDate" = COALESCE($1, "deliveryDate"),
+      "deliveryStatus" = COALESCE($2, "deliveryStatus"),
+      "deliveredDate" = COALESCE($3, "deliveredDate"),
+      "recipientName" = COALESCE($4, "recipientName"),
+      "driverId" = COALESCE($5, "driverId")
+     WHERE "deliveryId" = $6 RETURNING *`,
+    [deliveryDate, deliveryStatus, deliveredDate, recipientName, driverId, deliveryId]
   );
   return result.rows[0];
 }

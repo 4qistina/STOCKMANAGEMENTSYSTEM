@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 interface User {
@@ -27,6 +27,7 @@ export default function ManageProductCategoryPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [mode, setMode] = useState<Mode>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -79,6 +80,12 @@ export default function ManageProductCategoryPage() {
     if (checkingAuth || !user) return;
     loadCategories();
   }, [checkingAuth, user]);
+
+  const filteredCategories = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return categories;
+    return categories.filter((c) => c.productCategory.toLowerCase().includes(q));
+  }, [categories, searchQuery]);
 
   function openAdd() {
     setMode("add");
@@ -200,6 +207,26 @@ export default function ManageProductCategoryPage() {
           </button>
         </div>
 
+        {/* Search bar */}
+        <div className="mb-6 relative">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth="2"
+            stroke="currentColor"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+          </svg>
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search categories…"
+            className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-[13px] text-slate-700 focus:border-sky-400 focus:outline-none"
+          />
+        </div>
+
         {successMessage && (
           <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-[13px] font-medium text-emerald-700">
             {successMessage}
@@ -220,6 +247,10 @@ export default function ManageProductCategoryPage() {
           <div className="rounded-2xl border border-dashed border-slate-200 bg-white/50 px-6 py-16 text-center">
             <p className="text-sm font-medium text-slate-500">No categories yet. Add your first one above.</p>
           </div>
+        ) : filteredCategories.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-white/50 px-6 py-16 text-center">
+            <p className="text-sm font-medium text-slate-500">No categories match your search.</p>
+          </div>
         ) : (
           <div className="overflow-hidden rounded-2xl border border-slate-200/60 bg-white shadow-[0_20px_40px_-30px_rgba(51,65,60,0.15)]">
             <table className="w-full text-left text-sm">
@@ -230,7 +261,7 @@ export default function ManageProductCategoryPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {categories.map((c) => (
+                {filteredCategories.map((c) => (
                   <tr key={c.prodCatLookupId} className="transition hover:bg-sky-50/40">
                     <td className="px-5 py-3 font-bold text-slate-800">{c.productCategory}</td>
                     <td className="px-5 py-3 text-right">

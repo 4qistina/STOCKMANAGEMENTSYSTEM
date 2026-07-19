@@ -25,6 +25,7 @@ interface CartContextValue {
   removeItem: (productID: number) => void;
   clearCart: () => void;
   totalCount: number;
+  distinctCount: number;
   totalPrice: number;
 }
 
@@ -100,11 +101,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }
 
   const totalCount = items.reduce((sum, i) => sum + i.quantity, 0);
+  // Number of distinct products in the cart (e.g. MacBook qty 3 + iPad qty 2 = 2 items),
+  // used for the navbar badge so it doesn't read as a total-units count.
+  const distinctCount = items.length;
   const totalPrice = items.reduce((sum, i) => sum + i.quantity * i.productPrice, 0);
 
   return (
     <CartContext.Provider
-      value={{ items, addItem, updateQuantity, removeItem, clearCart, totalCount, totalPrice }}
+      value={{ items, addItem, updateQuantity, removeItem, clearCart, totalCount, distinctCount, totalPrice }}
     >
       {children}
     </CartContext.Provider>

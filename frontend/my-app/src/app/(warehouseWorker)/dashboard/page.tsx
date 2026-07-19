@@ -55,11 +55,10 @@ export default function WarehouseStaffDashboard() {
   ];
 
   const quickActions = [
-    { title: "Manage Products", desc: "Add, edit, or remove product listings", href: "/warehouse/maintain-products" },
+    { title: "Maintain Product", desc: "Add, edit, or remove product listings", href: "/warehouse/maintain-products" },
     { title: "Manage Product Category", desc: "Add, edit, or remove product categories", href: "/warehouse/categories" },
     { title: "Manage Product Brand", desc: "Add, edit, or remove product brands", href: "/warehouse/brands" },
-    { title: "Update Order Status", desc: "Mark order requests as approved or pending", href: "/warehouse/order-status" },
-    { title: "View Order Details", desc: "See active orders and order history for all Supervisors", href: "/warehouse/orders" },
+    { title: "Order Details & Status", desc: "View orders, update status, and see order history", href: "/warehouse/orders" },
     { title: "Manage Driver Information", desc: "Add, edit, or remove delivery drivers", href: "/warehouse/drivers" },
     { title: "Update Delivery Information", desc: "Assign a driver and confirm delivery", href: "/warehouse/delivery" },
   ];

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Navbar from "@/src/app/components/Navbar";
 
 interface User {
   userId: number;
@@ -68,14 +69,19 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function OrderCard({ order, showDelivery }: { order: Order; showDelivery: boolean }) {
+function OrderCard({ order, index, showDelivery }: { order: Order; index: number; showDelivery: boolean }) {
   return (
     <div className="rounded-2xl border border-slate-200/60 bg-white p-5 shadow-[0_20px_40px_-30px_rgba(51,65,60,0.15)] sm:p-6">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-4">
-        <div>
-          <p className="font-mono text-[11px] uppercase tracking-[0.1em] text-slate-400">Order Number</p>
-          <p className="font-[Barlow_Condensed,sans-serif] text-lg font-bold text-slate-800">{order.orderNumber}</p>
+        <div className="flex items-center gap-3">
+          <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-slate-100 font-mono text-[11px] font-bold text-slate-500">
+            {index + 1}
+          </span>
+          <div>
+            <p className="font-mono text-[11px] uppercase tracking-[0.1em] text-slate-400">Order Number</p>
+            <p className="font-[Barlow_Condensed,sans-serif] text-lg font-bold text-slate-800">{order.orderNumber}</p>
+          </div>
         </div>
         <div className="text-right">
           <p className="font-mono text-[11px] uppercase tracking-[0.1em] text-slate-400">Order Date</p>
@@ -86,19 +92,24 @@ function OrderCard({ order, showDelivery }: { order: Order; showDelivery: boolea
 
       {/* Items */}
       <div className="mt-4 flex flex-col divide-y divide-slate-100">
-        {order.items.map((item) => (
+        {order.items.map((item, itemIndex) => (
           <div key={item.productId} className="flex items-center justify-between gap-3 py-3">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] text-slate-400">
-                {item.categoryName && (
-                  <>
-                    <span className="uppercase tracking-wide text-slate-500">{item.categoryName}</span>
-                    <span>•</span>
-                  </>
-                )}
-                <span className="uppercase font-semibold text-sky-600">{item.brandName ?? "Generic"}</span>
+            <div className="flex min-w-0 items-start gap-2.5">
+              <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-slate-50 font-mono text-[10px] font-bold text-slate-400">
+                {itemIndex + 1}
+              </span>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] text-slate-400">
+                  {item.categoryName && (
+                    <>
+                      <span className="uppercase tracking-wide text-slate-500">{item.categoryName}</span>
+                      <span>•</span>
+                    </>
+                  )}
+                  <span className="uppercase font-semibold text-sky-600">{item.brandName ?? "Generic"}</span>
+                </div>
+                <p className="truncate text-[14px] font-bold text-slate-800">{item.productModel}</p>
               </div>
-              <p className="truncate text-[14px] font-bold text-slate-800">{item.productModel}</p>
             </div>
             <div className="flex flex-shrink-0 items-center gap-6 text-right">
               <div>
@@ -168,6 +179,10 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // --- Search / filter state (Order ID, Order Number, Order Date) ---
+  const [searchQuery, setSearchQuery] = useState("");
+  const [dateFilter, setDateFilter] = useState("");
+
   // --- Auth Verification ---
   useEffect(() => {
     const stored = localStorage.getItem("user");
@@ -227,6 +242,26 @@ export default function OrdersPage() {
     };
   }, [checkingAuth, user, tab, currentOrders, historyOrders]);
 
+  const orders = tab === "current" ? currentOrders : historyOrders;
+
+  const filteredOrders = useMemo(() => {
+    if (!orders) return orders;
+    const q = searchQuery.trim().toLowerCase();
+    return orders.filter((o) => {
+      const matchesQuery =
+        !q || o.orderNumber?.toLowerCase().includes(q) || String(o.orderID).includes(q);
+      const matchesDate = !dateFilter || (o.orderDate && o.orderDate.slice(0, 10) === dateFilter);
+      return matchesQuery && matchesDate;
+    });
+  }, [orders, searchQuery, dateFilter]);
+
+  const hasActiveFilters = !!(searchQuery || dateFilter);
+
+  function clearFilters() {
+    setSearchQuery("");
+    setDateFilter("");
+  }
+
   if (checkingAuth || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f4f8fb] text-slate-400">
@@ -235,11 +270,10 @@ export default function OrdersPage() {
     );
   }
 
-  const orders = tab === "current" ? currentOrders : historyOrders;
-
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_20%_0%,#f4f8fb_0%,#e9f1f7_55%,#dfebf3_100%)] px-5 py-8 sm:px-8 font-sans text-slate-700">
-      <div className="mx-auto max-w-4xl">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_20%_0%,#f4f8fb_0%,#e9f1f7_55%,#dfebf3_100%)] font-sans text-slate-700">
+      <Navbar />
+      <div className="mx-auto max-w-4xl px-5 py-8 sm:px-8">
         {/* Header */}
         <div className="mb-6">
           <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-slate-400">
@@ -272,6 +306,42 @@ export default function OrdersPage() {
           </button>
         </div>
 
+        {/* Search & filter bar: Order ID / Order Number / Order Date */}
+        <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative flex-1">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth="2"
+              stroke="currentColor"
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+            </svg>
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by Order ID or Order Number…"
+              className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-[13px] text-slate-700 focus:border-sky-400 focus:outline-none"
+            />
+          </div>
+          <input
+            type="date"
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-[13px] text-slate-600 focus:border-sky-400 focus:outline-none"
+          />
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-[12px] font-semibold text-rose-600 transition hover:border-rose-300"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
         {loading ? (
           <div className="flex flex-col gap-4">
             {Array.from({ length: 2 }).map((_, i) => (
@@ -282,7 +352,7 @@ export default function OrdersPage() {
           <div className="rounded-2xl border border-dashed border-rose-200 bg-rose-50/50 px-6 py-16 text-center">
             <p className="text-sm font-medium text-rose-600">{error}</p>
           </div>
-        ) : !orders || orders.length === 0 ? (
+        ) : !filteredOrders || filteredOrders.length === 0 ? (
           // [E1: Error "No Record Found"]
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white/50 px-6 py-20 text-center">
             <svg
@@ -303,21 +373,32 @@ export default function OrdersPage() {
               No records available.
             </h3>
             <p className="mt-1 text-[13px] text-slate-400">
-              {tab === "current"
+              {hasActiveFilters
+                ? "No orders match your search or filters."
+                : tab === "current"
                 ? "You have no pending or in-progress orders right now."
                 : "You don't have any delivered orders yet."}
             </p>
-            <Link
-              href="/products"
-              className="mt-4 rounded-lg bg-sky-100 px-4 py-2 text-xs font-bold uppercase tracking-wider text-sky-800 transition hover:bg-sky-200"
-            >
-              Browse Products
-            </Link>
+            {hasActiveFilters ? (
+              <button
+                onClick={clearFilters}
+                className="mt-4 rounded-lg bg-sky-100 px-4 py-2 text-xs font-bold uppercase tracking-wider text-sky-800 transition hover:bg-sky-200"
+              >
+                Reset Filters
+              </button>
+            ) : (
+              <Link
+                href="/products"
+                className="mt-4 rounded-lg bg-sky-100 px-4 py-2 text-xs font-bold uppercase tracking-wider text-sky-800 transition hover:bg-sky-200"
+              >
+                Browse Products
+              </Link>
+            )}
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            {orders.map((order) => (
-              <OrderCard key={order.orderID} order={order} showDelivery={tab === "history"} />
+            {filteredOrders.map((order, index) => (
+              <OrderCard key={order.orderID} order={order} index={index} showDelivery={tab === "history"} />
             ))}
           </div>
         )}

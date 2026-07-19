@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 interface User {
@@ -46,6 +46,8 @@ export default function UpdateDeliveryInformationPage() {
   const [orders, setOrders] = useState<DeliveryOrder[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [dateFilter, setDateFilter] = useState("");
 
   const [selected, setSelected] = useState<DeliveryOrder | null>(null);
   const [form, setForm] = useState({
@@ -103,6 +105,15 @@ export default function UpdateDeliveryInformationPage() {
     if (checkingAuth || !user) return;
     loadAll();
   }, [checkingAuth, user]);
+
+  const filteredOrders = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return orders.filter((o) => {
+      const matchesQuery = !q || o.orderNumber.toLowerCase().includes(q);
+      const matchesDate = !dateFilter || (o.orderDate && o.orderDate.slice(0, 10) === dateFilter);
+      return matchesQuery && matchesDate;
+    });
+  }, [orders, searchQuery, dateFilter]);
 
   function openDeliveryForm(order: DeliveryOrder) {
     setSelected(order);
@@ -184,6 +195,34 @@ export default function UpdateDeliveryInformationPage() {
           </div>
         )}
 
+        {/* Search & filter bar */}
+        <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative flex-1">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth="2"
+              stroke="currentColor"
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+            </svg>
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by Order Number…"
+              className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-[13px] text-slate-700 focus:border-sky-400 focus:outline-none"
+            />
+          </div>
+          <input
+            type="date"
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-[13px] text-slate-600 focus:border-sky-400 focus:outline-none"
+          />
+        </div>
+
         {loading ? (
           <div className="flex flex-col gap-3">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -194,6 +233,10 @@ export default function UpdateDeliveryInformationPage() {
           // [E1: Error "No Record Found"]
           <div className="rounded-2xl border border-dashed border-slate-200 bg-white/50 px-6 py-16 text-center">
             <p className="text-sm font-medium text-slate-500">No records available.</p>
+          </div>
+        ) : filteredOrders.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-white/50 px-6 py-16 text-center">
+            <p className="text-sm font-medium text-slate-500">No orders match your search or filters.</p>
           </div>
         ) : (
           <div className="overflow-hidden rounded-2xl border border-slate-200/60 bg-white shadow-[0_20px_40px_-30px_rgba(51,65,60,0.15)]">
@@ -207,13 +250,13 @@ export default function UpdateDeliveryInformationPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {orders.map((o) => (
+                {filteredOrders.map((o) => (
                   <tr key={o.orderID} className="transition hover:bg-sky-50/40">
                     <td className="px-5 py-3 font-bold text-slate-800">{o.orderNumber}</td>
                     <td className="px-5 py-3 text-slate-600">{formatDate(o.orderDate)}</td>
                     <td className="px-5 py-3">
-                      <span className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 font-mono text-[10px] font-bold uppercase text-sky-700">
-                        {o.orderStatus}
+                      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 font-mono text-[10px] font-bold uppercase text-emerald-700">
+                        {o.orderStatus === "Available" ? "Approved" : o.orderStatus}
                       </span>
                     </td>
                     <td className="px-5 py-3 text-right">

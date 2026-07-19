@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 interface User {
@@ -27,6 +27,7 @@ export default function ManageDriverInformationPage() {
 
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [mode, setMode] = useState<Mode>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -75,6 +76,14 @@ export default function ManageDriverInformationPage() {
     if (checkingAuth || !user) return;
     loadDrivers();
   }, [checkingAuth, user]);
+
+  const filteredDrivers = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return drivers;
+    return drivers.filter(
+      (d) => d.driverName.toLowerCase().includes(q) || d.driverPhoneNumb.toLowerCase().includes(q)
+    );
+  }, [drivers, searchQuery]);
 
   function openAdd() {
     setMode("add");
@@ -195,6 +204,26 @@ export default function ManageDriverInformationPage() {
           </button>
         </div>
 
+        {/* Search bar */}
+        <div className="mb-6 relative">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth="2"
+            stroke="currentColor"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+          </svg>
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by name or phone number…"
+            className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-[13px] text-slate-700 focus:border-sky-400 focus:outline-none"
+          />
+        </div>
+
         {loading ? (
           <div className="flex flex-col gap-3">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -204,6 +233,10 @@ export default function ManageDriverInformationPage() {
         ) : drivers.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-200 bg-white/50 px-6 py-16 text-center">
             <p className="text-sm font-medium text-slate-500">No records available.</p>
+          </div>
+        ) : filteredDrivers.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-white/50 px-6 py-16 text-center">
+            <p className="text-sm font-medium text-slate-500">No drivers match your search.</p>
           </div>
         ) : (
           <div className="overflow-hidden rounded-2xl border border-slate-200/60 bg-white shadow-[0_20px_40px_-30px_rgba(51,65,60,0.15)]">
@@ -216,7 +249,7 @@ export default function ManageDriverInformationPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {drivers.map((d) => (
+                {filteredDrivers.map((d) => (
                   <tr key={d.driverId} className="transition hover:bg-sky-50/40">
                     <td className="px-5 py-3 font-bold text-slate-800">{d.driverName}</td>
                     <td className="px-5 py-3 text-slate-600">{d.driverPhoneNumb}</td>

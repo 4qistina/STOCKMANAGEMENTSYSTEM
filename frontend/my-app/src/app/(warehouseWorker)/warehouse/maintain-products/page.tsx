@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 
 interface User {
@@ -93,18 +93,49 @@ export default function MaintainProductPage() {
   const [submitting, setSubmitting] = useState(false);
   const [confirmMessage, setConfirmMessage] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
+  const [imageProcessing, setImageProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  function handleImageFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+  // Resize + compress the picked image on a canvas before turning it into a
+  // data URL, so we send as few bytes as the backend column allows.
+  function compressImage(file: File, maxDimension = 480, quality = 0.6): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(reader.error);
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error("Could not read image"));
+        img.onload = () => {
+          const scale = Math.min(1, maxDimension / Math.max(img.width, img.height));
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return reject(new Error("Canvas not supported"));
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/jpeg", quality));
+        };
+        img.src = reader.result as string;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handleImageFileSelected(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file later
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      setForm((prev) => ({ ...prev, productImage: reader.result as string }));
-    };
-    reader.readAsDataURL(file);
-    // allow re-selecting the same file later
-    e.target.value = "";
+    setImageProcessing(true);
+    setFormError(null);
+    try {
+      const compressed = await compressImage(file);
+      setForm((prev) => ({ ...prev, productImage: compressed }));
+    } catch (err) {
+      console.error("Failed to process image:", err);
+      setFormError("Couldn't process that image. Please try a different file.");
+    } finally {
+      setImageProcessing(false);
+    }
   }
 
   useEffect(() => {
@@ -264,7 +295,16 @@ export default function MaintainProductPage() {
             });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to save product");
+      if (!res.ok) {
+        const rawMessage: string = data.error || "";
+        if (/value too long/i.test(rawMessage) || /character varying/i.test(rawMessage)) {
+          throw new Error(
+            "This image is too large for the database to store. Ask your backend team to widen the " +
+              "\"productImage\" column (it's currently a short varchar) — see README-CHANGES.md for the exact SQL."
+          );
+        }
+        throw new Error(rawMessage || "Failed to save product");
+      }
 
       await loadAll();
       closeForm();
@@ -436,10 +476,15 @@ export default function MaintainProductPage() {
                     <p className="font-mono text-[10px] uppercase tracking-wider text-slate-400">Price</p>
                     <p className="text-base font-bold text-slate-900">${Number(p.productPrice).toFixed(2)}</p>
                   </div>
-                  <div className="text-right">
-                    <p className="font-mono text-[10px] uppercase tracking-wider text-slate-400">Stock</p>
-                    <p className="text-sm font-semibold text-slate-700">{p.handInStock}</p>
-                  </div>
+                  <span
+                    className={`rounded-full border px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider ${
+                      p.productStatus === "Available"
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                        : "border-slate-200 bg-slate-100 text-slate-500"
+                    }`}
+                  >
+                    {p.productStatus}
+                  </span>
                 </div>
               </button>
             ))}
@@ -491,10 +536,6 @@ export default function MaintainProductPage() {
                     {viewingProduct.productStatus}
                   </span>
                 </div>
-                <div className="mt-1 flex items-center gap-2 text-[13px]">
-                  <span className="text-slate-400">Hand In Stock:</span>
-                  <span className="font-semibold text-slate-700">{viewingProduct.handInStock} unit(s)</span>
-                </div>
               </div>
             </div>
 
@@ -543,9 +584,14 @@ export default function MaintainProductPage() {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="group flex h-32 w-full items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 transition hover:border-sky-300 hover:bg-sky-50/40"
+                  disabled={imageProcessing}
+                  className="group flex h-32 w-full items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 transition hover:border-sky-300 hover:bg-sky-50/40 disabled:cursor-wait disabled:opacity-70"
                 >
-                  {form.productImage ? (
+                  {imageProcessing ? (
+                    <span className="text-[12px] font-semibold uppercase tracking-wide text-slate-400">
+                      Processing image…
+                    </span>
+                  ) : form.productImage ? (
                     <img src={form.productImage} alt="Preview" className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex flex-col items-center gap-1.5 text-slate-400 group-hover:text-sky-600">

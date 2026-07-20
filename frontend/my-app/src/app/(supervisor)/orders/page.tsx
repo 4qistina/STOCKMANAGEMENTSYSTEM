@@ -174,8 +174,7 @@ export default function OrdersPage() {
   const [checkingAuth, setCheckingAuth] = useState(true);
 
   const [tab, setTab] = useState<Tab>("current");
-  const [currentOrders, setCurrentOrders] = useState<Order[] | null>(null);
-  const [historyOrders, setHistoryOrders] = useState<Order[] | null>(null);
+  const [allOrders, setAllOrders] = useState<Order[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -205,12 +204,15 @@ export default function OrdersPage() {
     }
   }, [router]);
 
-  // --- Fetch orders for the active tab (cached after first load) ---
+  // --- Fetch both active + history once, then classify orders ourselves ---
+  // Business rule: Pending or Approved-but-not-yet-delivered orders always
+  // belong in "Current Orders"; only orders that have actually been
+  // delivered move to "Order History". We classify by delivery status on
+  // the client so this holds true regardless of how each endpoint buckets
+  // things server-side.
   useEffect(() => {
     if (checkingAuth || !user?.userId) return;
-
-    const alreadyLoaded = tab === "current" ? currentOrders !== null : historyOrders !== null;
-    if (alreadyLoaded) return;
+    if (allOrders !== null) return;
 
     let cancelled = false;
 
@@ -218,16 +220,20 @@ export default function OrdersPage() {
       setLoading(true);
       setError(null);
       try {
-        const endpoint =
-          tab === "current"
-            ? `${API_BASE}/api/orders/active/${user!.userId}`
-            : `${API_BASE}/api/orders/history/${user!.userId}`;
-        const res = await fetch(endpoint);
-        if (!res.ok) throw new Error("Failed to load orders");
-        const data: Order[] = await res.json();
+        const [activeRes, historyRes] = await Promise.all([
+          fetch(`${API_BASE}/api/orders/active/${user!.userId}`),
+          fetch(`${API_BASE}/api/orders/history/${user!.userId}`),
+        ]);
+        if (!activeRes.ok || !historyRes.ok) throw new Error("Failed to load orders");
+        const [activeData, historyData]: [Order[], Order[]] = await Promise.all([
+          activeRes.json(),
+          historyRes.json(),
+        ]);
         if (cancelled) return;
-        if (tab === "current") setCurrentOrders(data);
-        else setHistoryOrders(data);
+
+        const merged = new Map<number, Order>();
+        [...activeData, ...historyData].forEach((o) => merged.set(o.orderID, o));
+        setAllOrders(Array.from(merged.values()));
       } catch (err) {
         if (!cancelled) setError("Couldn't load your orders. Please try again.");
         console.error("Failed to fetch orders:", err);
@@ -240,9 +246,16 @@ export default function OrdersPage() {
     return () => {
       cancelled = true;
     };
-  }, [checkingAuth, user, tab, currentOrders, historyOrders]);
+  }, [checkingAuth, user, allOrders]);
 
-  const orders = tab === "current" ? currentOrders : historyOrders;
+  function isDelivered(o: Order) {
+    return o.deliveryStatus === "Delivered" || !!o.deliveredDate;
+  }
+
+  const orders = useMemo(() => {
+    if (!allOrders) return null;
+    return allOrders.filter((o) => (tab === "history" ? isDelivered(o) : !isDelivered(o)));
+  }, [allOrders, tab]);
 
   const filteredOrders = useMemo(() => {
     if (!orders) return orders;

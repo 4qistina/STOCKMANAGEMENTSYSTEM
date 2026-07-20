@@ -266,12 +266,15 @@ function ProductListingContent() {
               const currentStock = p.handInStock ?? 0;
               const isLowStock = currentStock <= 5;
               const isOutOfStock = currentStock === 0;
+              const isUnavailable = p.productStatus === "Not Available";
 
               return (
                 <Link
                   key={cardKey}
                   href={`/products/${targetProductId}`}
-                  className="group relative flex flex-col rounded-2xl border border-slate-200/60 bg-white p-4 shadow-[0_20px_40px_-30px_rgba(51,65,60,0.15)] transition-all duration-300 hover:-translate-y-1 hover:border-sky-300 hover:shadow-[0_22px_45px_-20px_rgba(14,165,233,0.15)]"
+                  className={`group relative flex flex-col rounded-2xl border border-slate-200/60 bg-white p-4 shadow-[0_20px_40px_-30px_rgba(51,65,60,0.15)] transition-all duration-300 hover:-translate-y-1 hover:border-sky-300 hover:shadow-[0_22px_45px_-20px_rgba(14,165,233,0.15)] ${
+                    isUnavailable ? "opacity-55 grayscale hover:opacity-75" : ""
+                  }`}
                 >
                   {/* Image Holder */}
                   <div className="relative mb-4 flex h-44 items-center justify-center overflow-hidden rounded-xl bg-slate-50 border border-slate-100">

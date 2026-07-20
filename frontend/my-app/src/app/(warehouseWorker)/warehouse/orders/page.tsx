@@ -200,8 +200,7 @@ export default function WarehouseViewOrderDetailsPage() {
   const [checkingAuth, setCheckingAuth] = useState(true);
 
   const [tab, setTab] = useState<Tab>("active");
-  const [activeOrders, setActiveOrders] = useState<Order[] | null>(null);
-  const [historyOrders, setHistoryOrders] = useState<Order[] | null>(null);
+  const [allOrders, setAllOrders] = useState<Order[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -238,17 +237,28 @@ export default function WarehouseViewOrderDetailsPage() {
     }
   }, [router]);
 
-  async function loadOrders(targetTab: Tab) {
+  // Business rule: Pending or Approved-but-not-yet-delivered orders always
+  // belong in "Active Order"; only orders that have actually been delivered
+  // move to "Order History" — classified on the client so it holds true
+  // regardless of how each endpoint buckets things server-side.
+  async function loadOrders() {
     setLoading(true);
     setError(null);
     try {
       // [A1: View Active Order] / [A2: View Order History] — across ALL Supervisors
-      const endpoint = targetTab === "active" ? `${API_BASE}/api/orders/active` : `${API_BASE}/api/orders/history`;
-      const res = await fetch(endpoint);
-      if (!res.ok) throw new Error("Failed to load orders");
-      const data: Order[] = await res.json();
-      if (targetTab === "active") setActiveOrders(data);
-      else setHistoryOrders(data);
+      const [activeRes, historyRes] = await Promise.all([
+        fetch(`${API_BASE}/api/orders/active`),
+        fetch(`${API_BASE}/api/orders/history`),
+      ]);
+      if (!activeRes.ok || !historyRes.ok) throw new Error("Failed to load orders");
+      const [activeData, historyData]: [Order[], Order[]] = await Promise.all([
+        activeRes.json(),
+        historyRes.json(),
+      ]);
+
+      const merged = new Map<number, Order>();
+      [...activeData, ...historyData].forEach((o) => merged.set(o.orderID, o));
+      setAllOrders(Array.from(merged.values()));
     } catch (err) {
       setError("Couldn't load orders. Please try again.");
       console.error("Failed to fetch orders:", err);
@@ -257,14 +267,17 @@ export default function WarehouseViewOrderDetailsPage() {
     }
   }
 
-  // --- Fetch orders for the active tab (cached after first load) ---
+  function isDelivered(o: Order) {
+    return o.deliveryStatus === "Delivered" || !!o.deliveredDate;
+  }
+
+  // --- Fetch orders once ---
   useEffect(() => {
     if (checkingAuth || !user) return;
-    const alreadyLoaded = tab === "active" ? activeOrders !== null : historyOrders !== null;
-    if (alreadyLoaded) return;
-    loadOrders(tab);
+    if (allOrders !== null) return;
+    loadOrders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [checkingAuth, user, tab]);
+  }, [checkingAuth, user, allOrders]);
 
   function openStatusForm(order: Order) {
     setStatusTarget(order);
@@ -284,10 +297,8 @@ export default function WarehouseViewOrderDetailsPage() {
       setSuccessMessage(
         `Order ${statusTarget.orderNumber} has been approved and moved to Update Delivery Information.`
       );
-      // Refresh whichever tab is affected
-      setActiveOrders(null);
-      setHistoryOrders(null);
-      await loadOrders(tab);
+      setAllOrders(null);
+      await loadOrders();
       setStatusTarget(null);
     } catch (err) {
       console.error("Failed to update order status:", err);
@@ -296,7 +307,10 @@ export default function WarehouseViewOrderDetailsPage() {
     }
   }
 
-  const orders = tab === "active" ? activeOrders : historyOrders;
+  const orders = useMemo(() => {
+    if (!allOrders) return null;
+    return allOrders.filter((o) => (tab === "history" ? isDelivered(o) : !isDelivered(o)));
+  }, [allOrders, tab]);
 
   const filteredOrders = useMemo(() => {
     if (!orders) return orders;

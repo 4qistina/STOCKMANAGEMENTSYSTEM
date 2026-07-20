@@ -59,16 +59,10 @@ export default function WarehouseNavbar() {
         </div>
       </header>
 
-      {/* ---------- Sidebar Drawer ---------- */}
+      {/* ---------- Sidebar Drawer (opens on the left, by the hamburger button) ---------- */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-50 flex">
-          <div
-            className="flex-1 bg-slate-900/30 backdrop-blur-[1px]"
-            onClick={() => setSidebarOpen(false)}
-            aria-hidden="true"
-          />
-
-          <aside className="flex h-full w-[300px] flex-col border-l border-slate-200 bg-white p-6 shadow-[0_30px_60px_-25px_rgba(51,65,60,0.25)]">
+          <aside className="flex h-full w-[300px] flex-col border-r border-slate-200 bg-white p-6 shadow-[0_30px_60px_-25px_rgba(51,65,60,0.25)]">
             <div className="mb-6 flex flex-shrink-0 items-center justify-between">
               <div className="flex flex-col gap-0.5">
                 <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-slate-400">System</span>
@@ -111,6 +105,12 @@ export default function WarehouseNavbar() {
               Log out
             </button>
           </aside>
+
+          <div
+            className="flex-1 bg-slate-900/30 backdrop-blur-[1px]"
+            onClick={() => setSidebarOpen(false)}
+            aria-hidden="true"
+          />
         </div>
       )}
     </>

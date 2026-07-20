@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, Suspense, type FormEvent } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/src/app/components/Navbar";
@@ -55,6 +55,31 @@ function ProductListingContent() {
 
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [brands, setBrands] = useState<ProductBrand[]>([]);
+
+  const [searchInput, setSearchInput] = useState(activeSearchQuery ?? "");
+
+  function updateFilterParam(name: "category" | "brand", value: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value) {
+      params.set(name, value);
+      // Category and brand are mutually exclusive filters: picking one clears the other.
+      params.delete(name === "category" ? "brand" : "category");
+    } else {
+      params.delete(name);
+    }
+    router.push(`${pathname}?${params.toString()}`);
+  }
+
+  function handleSearchSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const params = new URLSearchParams(searchParams.toString());
+    if (searchInput.trim()) {
+      params.set("search", searchInput.trim());
+    } else {
+      params.delete("search");
+    }
+    router.push(`${pathname}?${params.toString()}`);
+  }
 
   // --- Auth Verification ---
   useEffect(() => {
@@ -185,6 +210,59 @@ function ProductListingContent() {
               Logged in as <strong className="text-slate-600">{user.userFullname}</strong> (Supervisor)
             </p>
           </div>
+        </div>
+
+        {/* Search & Category/Brand filters (moved here from the navbar) */}
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <form onSubmit={handleSearchSubmit} className="flex-1">
+            <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2.5 transition focus-within:border-sky-400 focus-within:ring-4 focus-within:ring-sky-400/15">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                className="h-4 w-4 flex-shrink-0 text-slate-400"
+                aria-hidden="true"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path strokeLinecap="round" d="m20 20-3.5-3.5" />
+              </svg>
+              <input
+                type="text"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="Search products, model, or code…"
+                className="w-full bg-transparent text-[14px] text-slate-700 placeholder:text-slate-400 focus:outline-none"
+              />
+            </div>
+          </form>
+
+          <select
+            value={activeCategoryId ?? ""}
+            onChange={(e) => updateFilterParam("category", e.target.value)}
+            className="rounded-full border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-medium text-slate-600 focus:border-sky-400 focus:outline-none"
+          >
+            <option value="">All Categories</option>
+            {categories.map((cat) => (
+              <option key={cat.prodCatLookupId} value={cat.prodCatLookupId}>
+                {cat.productCategory}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={activeBrandId ?? ""}
+            onChange={(e) => updateFilterParam("brand", e.target.value)}
+            className="rounded-full border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-medium text-slate-600 focus:border-sky-400 focus:outline-none"
+          >
+            <option value="">All Brands</option>
+            {brands.map((brand) => (
+              <option key={brand.prodBrandLookupId} value={brand.prodBrandLookupId}>
+                {brand.productBrand}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Filter Status Bar */}

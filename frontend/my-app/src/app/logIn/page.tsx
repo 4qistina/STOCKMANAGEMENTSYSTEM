@@ -64,7 +64,7 @@ export default function LoginPage() {
 
       setStatus({ state: "success", message: data.message || "Login successful." });
 
-      const destination = ROLE_REDIRECTS[data.user?.role] ?? "/logIn";
+      const destination = ROLE_REDIRECTS[data.user?.role] ?? "/login";
       router.replace(destination);
     } catch (err) {
       setStatus({ state: "error", message: "Couldn't reach the server. Try again." });

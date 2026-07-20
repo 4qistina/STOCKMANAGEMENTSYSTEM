@@ -260,7 +260,7 @@ export default function RegisterPage() {
         <div className="mt-6 border-t border-dashed border-slate-200" aria-hidden="true" />
         <p className="mt-3.5 text-center text-[11.5px] text-slate-500">
           Already have an account?{" "}
-          <Link href="/logIn" className="text-sky-600 hover:underline">
+          <Link href="/login" className="text-sky-600 hover:underline">
             Sign in here
           </Link>
         </p>

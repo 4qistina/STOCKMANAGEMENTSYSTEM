@@ -53,7 +53,24 @@ function orderTotal(items: OrderItem[]) {
   return items.reduce((sum, i) => sum + Number(i.productPrice ?? 0) * i.quantity, 0);
 }
 
+// The API still stores/sends the underlying value as "Available" for backend
+// compatibility; "Approved" is purely the label shown to Supervisors. Matched
+// case-insensitively so orders don't lose their color if the stored value's
+// casing ever differs (e.g. seed data written directly via SQL).
+const STATUS_LABELS: Record<string, string> = {
+  Pending: "Pending",
+  Available: "Approved",
+};
+
+function normalizeStatus(status: string) {
+  const lower = status.trim().toLowerCase();
+  if (lower === "pending") return "Pending";
+  if (lower === "available") return "Available";
+  return status;
+}
+
 function StatusBadge({ status }: { status: string }) {
+  const normalized = normalizeStatus(status);
   const styles: Record<string, string> = {
     Pending: "bg-amber-50 text-amber-700 border-amber-200",
     Available: "bg-sky-50 text-sky-700 border-sky-200",
@@ -61,10 +78,10 @@ function StatusBadge({ status }: { status: string }) {
   return (
     <span
       className={`rounded-full border px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider ${
-        styles[status] ?? "bg-slate-50 text-slate-600 border-slate-200"
+        styles[normalized] ?? "bg-slate-50 text-slate-600 border-slate-200"
       }`}
     >
-      {status}
+      {STATUS_LABELS[normalized] ?? normalized}
     </span>
   );
 }

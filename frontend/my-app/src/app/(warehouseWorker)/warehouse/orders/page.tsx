@@ -60,19 +60,58 @@ function orderTotal(items: OrderItem[]) {
   return items.reduce((sum, i) => sum + Number(i.productPrice ?? 0) * i.quantity, 0);
 }
 
-function StatusBadge({ status }: { status: string }) {
+// Normalize case before comparing/labeling — orders created or edited outside
+// the app (seed data, direct SQL, etc.) can end up with different casing
+// ("available" vs "Available"), which previously fell through to the grey
+// "unknown status" style even though the order was really Approved. Matching
+// case-insensitively keeps every Approved order green regardless of how the
+// value was stored.
+function normalizeStatus(status: string) {
+  const lower = status.trim().toLowerCase();
+  if (lower === "pending") return "Pending";
+  if (lower === "available") return "Available";
+  return status;
+}
+
+function isApproved(order: Order) {
+  return normalizeStatus(order.orderStatus) === "Available";
+}
+
+// An Approved order still needs a driver assigned before Update Delivery
+// Information can take it further — surface that as its own prompt badge.
+function needsDriver(order: Order) {
+  return isApproved(order) && !order.driverId;
+}
+
+function StatusBadge({ order }: { order: Order }) {
+  const status = normalizeStatus(order.orderStatus);
   const styles: Record<string, string> = {
     Pending: "bg-amber-50 text-amber-700 border-amber-200",
     Available: "bg-emerald-50 text-emerald-700 border-emerald-200",
   };
   return (
-    <span
-      className={`rounded-full border px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider ${
-        styles[status] ?? "bg-slate-50 text-slate-600 border-slate-200"
-      }`}
-    >
-      {STATUS_LABELS[status] ?? status}
-    </span>
+    <div className="flex items-center gap-2">
+      <span
+        title={
+          needsDriver(order)
+            ? "Approved — but no driver has been assigned yet. Assign one in Update Delivery Information."
+            : undefined
+        }
+        className={`rounded-full border px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider ${
+          styles[status] ?? "bg-slate-50 text-slate-600 border-slate-200"
+        }`}
+      >
+        {STATUS_LABELS[status] ?? status}
+      </span>
+      {needsDriver(order) && (
+        <span
+          title="This order is approved but still needs a driver assigned before it can be delivered."
+          className="cursor-help rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-orange-700"
+        >
+          Assign Driver
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -109,8 +148,8 @@ function OrderCard({
           <p className="text-sm font-semibold text-slate-600">{formatDate(order.orderDate)}</p>
         </div>
         <div className="flex items-center gap-3">
-          <StatusBadge status={order.orderStatus} />
-          {onUpdateStatus && order.orderStatus === "Pending" && (
+          <StatusBadge order={order} />
+          {onUpdateStatus && normalizeStatus(order.orderStatus) === "Pending" && (
             <button
               onClick={() => onUpdateStatus(order)}
               className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"

@@ -9,17 +9,29 @@ interface User {
   role: string;
 }
 
+interface OrderItem {
+  productId: number;
+  productModel: string;
+  productCode: string;
+  productPrice: number;
+  categoryName: string | null;
+  brandName: string | null;
+  quantity: number;
+}
+
 interface DeliveryOrder {
   orderID: number;
   orderNumber: string;
   orderDate: string;
   orderStatus: string;
+  submittedBy?: string | null;
   deliveryId: number | null;
   deliveryDate: string | null;
   deliveredDate: string | null;
   recipientName: string | null;
   deliveryStatus: string | null;
   driverId: number | null;
+  items?: OrderItem[];
 }
 
 interface Driver {
@@ -49,6 +61,9 @@ export default function UpdateDeliveryInformationPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [dateFilter, setDateFilter] = useState("");
 
+  // Clicking a row opens the order's details first; "Update Delivery
+  // Information" from within that view then opens the editable form.
+  const [viewing, setViewing] = useState<DeliveryOrder | null>(null);
   const [selected, setSelected] = useState<DeliveryOrder | null>(null);
   const [form, setForm] = useState({
     deliveryDate: "",
@@ -114,6 +129,14 @@ export default function UpdateDeliveryInformationPage() {
       return matchesQuery && matchesDate;
     });
   }, [orders, searchQuery, dateFilter]);
+
+  function openDetails(order: DeliveryOrder) {
+    setViewing(order);
+  }
+
+  function closeDetails() {
+    setViewing(null);
+  }
 
   function openDeliveryForm(order: DeliveryOrder) {
     setSelected(order);
@@ -251,7 +274,11 @@ export default function UpdateDeliveryInformationPage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredOrders.map((o) => (
-                  <tr key={o.orderID} className="transition hover:bg-sky-50/40">
+                  <tr
+                    key={o.orderID}
+                    onClick={() => openDetails(o)}
+                    className="cursor-pointer transition hover:bg-sky-50/40"
+                  >
                     <td className="px-5 py-3 font-bold text-slate-800">{o.orderNumber}</td>
                     <td className="px-5 py-3 text-slate-600">{formatDate(o.orderDate)}</td>
                     <td className="px-5 py-3">
@@ -261,7 +288,10 @@ export default function UpdateDeliveryInformationPage() {
                     </td>
                     <td className="px-5 py-3 text-right">
                       <button
-                        onClick={() => openDeliveryForm(o)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openDeliveryForm(o);
+                        }}
                         className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-600 transition hover:border-sky-300 hover:text-sky-700"
                       >
                         Update Delivery
@@ -274,6 +304,89 @@ export default function UpdateDeliveryInformationPage() {
           </div>
         )}
       </div>
+
+      {viewing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+            <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-slate-400">
+              {viewing.orderNumber}
+            </span>
+            <h3 className="mt-1 mb-4 font-[Barlow_Condensed,sans-serif] text-xl font-bold uppercase text-slate-800">
+              Order Details
+            </h3>
+
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-xl border border-slate-100 bg-slate-50/60 p-4 text-[13px]">
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-slate-400">Submitted By</p>
+                <p className="font-semibold text-slate-700">{viewing.submittedBy ?? "—"}</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-slate-400">Order Date</p>
+                <p className="font-semibold text-slate-700">{formatDate(viewing.orderDate)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-slate-400">Status</p>
+                <p className="font-semibold text-slate-700">
+                  {viewing.orderStatus === "Available" ? "Approved" : viewing.orderStatus}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-slate-400">Driver Assigned</p>
+                <p className="font-semibold text-slate-700">{viewing.driverId ? "Yes" : "Not yet"}</p>
+              </div>
+            </div>
+
+            <div className="mt-4 max-h-64 overflow-y-auto rounded-xl border border-slate-100">
+              <table className="w-full text-left text-[13px]">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50/60 font-mono text-[10px] uppercase tracking-wider text-slate-400">
+                    <th className="px-3 py-2">Product</th>
+                    <th className="px-3 py-2 text-right">Qty</th>
+                    <th className="px-3 py-2 text-right">Price</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {(viewing.items ?? []).map((item) => (
+                    <tr key={item.productId}>
+                      <td className="px-3 py-2 font-medium text-slate-700">{item.productModel}</td>
+                      <td className="px-3 py-2 text-right text-slate-600">{item.quantity}</td>
+                      <td className="px-3 py-2 text-right text-slate-600">
+                        ${Number(item.productPrice ?? 0).toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                  {(!viewing.items || viewing.items.length === 0) && (
+                    <tr>
+                      <td colSpan={3} className="px-3 py-4 text-center text-slate-400">
+                        No line items found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-5 flex gap-3">
+              <button
+                onClick={closeDetails}
+                className="flex-1 rounded-lg border border-slate-200 py-2.5 text-xs font-bold uppercase text-slate-500 transition hover:border-slate-300"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  const order = viewing;
+                  closeDetails();
+                  if (order) openDeliveryForm(order);
+                }}
+                className="flex-1 rounded-lg bg-sky-600 py-2.5 text-xs font-bold uppercase text-white transition hover:bg-sky-700"
+              >
+                Update Delivery Information
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {selected && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">

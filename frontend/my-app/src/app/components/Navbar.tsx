@@ -1,24 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useCart } from "@/src/app/contexts/CartContext";
 
-interface ProductCategory {
-  prodCatLookupId: number;
-  productCategory: string;
-}
-
-interface ProductBrand {
-  prodBrandLookupId: number;
-  productBrand: string;
-}
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
-const CATEGORY_ENDPOINT = `${API_BASE}/api/categories`;
-const BRAND_ENDPOINT = `${API_BASE}/api/brands`;
-
+// Search and the Categories/Brands pickers used to live here, but now live on
+// the Products page itself (search/filtering only makes sense there) — the
+// navbar stays focused on navigation, cart, and account actions on every page.
 const SIDEBAR_LINKS = [
   { label: "Product List", href: "/products" },
   { label: "View Orders", href: "/orders" },
@@ -27,102 +16,13 @@ const SIDEBAR_LINKS = [
 
 export default function Navbar() {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const { distinctCount } = useCart();
 
-  const [categories, setCategories] = useState<ProductCategory[]>([]);
-  const [brands, setBrands] = useState<ProductBrand[]>([]);
-  const [loadingCategories, setLoadingCategories] = useState(true);
-  const [loadingBrands, setLoadingBrands] = useState(true);
-
-  const [activeDropdown, setActiveDropdown] = useState<"categories" | "brands" | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarCategoriesOpen, setSidebarCategoriesOpen] = useState(false);
-  const [sidebarBrandsOpen, setSidebarBrandsOpen] = useState(false);
-  
-  const [searchTerm, setSearchTerm] = useState(searchParams.get("search") ?? "");
-
-  const navRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadCategories() {
-      try {
-        const catRes = await fetch(CATEGORY_ENDPOINT);
-        const catData = catRes.ok ? await catRes.json() : [];
-        if (!cancelled) setCategories(catData);
-      } catch (err) {
-        console.error("Failed to load navbar categories", err);
-      } finally {
-        if (!cancelled) setLoadingCategories(false);
-      }
-    }
-
-    async function loadBrands() {
-      try {
-        const brandRes = await fetch(BRAND_ENDPOINT);
-        const brandData = brandRes.ok ? await brandRes.json() : [];
-        if (!cancelled) setBrands(brandData);
-      } catch (err) {
-        console.error("Failed to load navbar brands", err);
-      } finally {
-        if (!cancelled) setLoadingBrands(false);
-      }
-    }
-
-    loadCategories();
-    loadBrands();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (navRef.current && !navRef.current.contains(e.target as Node)) {
-        setActiveDropdown(null);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   function handleLogout() {
     localStorage.removeItem("user");
     router.replace("/login");
-  }
-
-  function toggleDropdown(menu: "categories" | "brands") {
-    setActiveDropdown((prev) => (prev === menu ? null : menu));
-  }
-
-  function createQueryString(name: string, value: string) {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set(name, value);
-    return params.toString();
-  }
-
-  // Category and brand are mutually exclusive filters: picking one clears the other,
-  // so selecting a brand doesn't keep a previously-picked category (and vice versa).
-  function createFilterQueryString(filterType: "category" | "brand", value: string) {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set(filterType, value);
-    params.delete(filterType === "category" ? "brand" : "category");
-    return params.toString();
-  }
-
-  function handleSearchSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const currentParams = new URLSearchParams(searchParams.toString());
-    if (searchTerm.trim()) {
-      currentParams.set("search", searchTerm.trim());
-    } else {
-      currentParams.delete("search");
-    }
-    router.push(`${pathname}?${currentParams.toString()}`);
   }
 
   return (
@@ -140,29 +40,12 @@ export default function Navbar() {
             <span className="h-[2px] w-5 rounded-full bg-slate-600" />
           </button>
 
-          <form onSubmit={handleSearchSubmit} className="flex-1">
-            <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5 transition focus-within:border-sky-400 focus-within:ring-4 focus-within:ring-sky-400/15">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                className="h-4 w-4 flex-shrink-0 text-slate-400"
-                aria-hidden="true"
-              >
-                <circle cx="11" cy="11" r="7" />
-                <path strokeLinecap="round" d="m20 20-3.5-3.5" />
-              </svg>
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search products, model, or code…"
-                className="w-full bg-transparent text-[14px] text-slate-700 placeholder:text-slate-400 focus:outline-none"
-              />
-            </div>
-          </form>
+          <div className="flex flex-1 flex-col gap-0.5">
+            <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-slate-400">
+              System
+            </span>
+            <span className="font-mono text-xs tracking-[0.08em] text-sky-600">STOCK-MGMT</span>
+          </div>
 
           <Link
             href="/cart"
@@ -202,114 +85,6 @@ export default function Navbar() {
             Log out
           </button>
         </div>
-
-        <nav ref={navRef} className="relative border-t border-slate-100">
-          <div className="mx-auto flex max-w-7xl items-center gap-2 px-5 py-2 sm:px-8">
-            <button
-              type="button"
-              onClick={() => toggleDropdown("categories")}
-              className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 font-condensed text-[14px] font-semibold uppercase tracking-wide transition ${
-                activeDropdown === "categories"
-                  ? "bg-[#1f3b57] text-slate-50"
-                  : "text-slate-600 hover:bg-sky-400/10 hover:text-sky-700"
-              }`}
-            >
-              Categories
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2.5}
-                className={`h-3 w-3 transition-transform ${activeDropdown === "categories" ? "rotate-180" : ""}`}
-                aria-hidden="true"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
-              </svg>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => toggleDropdown("brands")}
-              className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 font-condensed text-[14px] font-semibold uppercase tracking-wide transition ${
-                activeDropdown === "brands"
-                  ? "bg-[#1f3b57] text-slate-50"
-                  : "text-slate-600 hover:bg-sky-400/10 hover:text-sky-700"
-              }`}
-            >
-              Brands
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2.5}
-                className={`h-3 w-3 transition-transform ${activeDropdown === "brands" ? "rotate-180" : ""}`}
-                aria-hidden="true"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
-              </svg>
-            </button>
-          </div>
-
-          {activeDropdown !== null && (
-            <div className="absolute left-0 right-0 top-full z-50 border-t border-slate-100 bg-white shadow-[0_30px_60px_-15px_rgba(15,23,42,0.15)] transition-all">
-              <div className="mx-auto max-w-7xl px-8 py-6">
-                
-                {activeDropdown === "categories" && (
-                  <div>
-                    {loadingCategories ? (
-                      <p className="text-[13px] text-slate-400 animate-pulse">Loading categories…</p>
-                    ) : categories.length === 0 ? (
-                      <p className="text-[13px] text-slate-400 italic">No categories available.</p>
-                    ) : (
-                      <ul className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                        {categories.map((cat) => (
-                          <li key={cat.prodCatLookupId}>
-                            <Link
-                              /* FIXED: Passing numeric lookup ID instead of name string */
-                              href={`${pathname}?${createFilterQueryString("category", cat.prodCatLookupId.toString())}`}
-                              onClick={() => setActiveDropdown(null)}
-                              className="block truncate rounded-lg border border-slate-100 bg-white px-4 py-3 text-left text-[13.5px] font-medium text-slate-600 transition hover:border-sky-100 hover:bg-sky-50/50 hover:text-sky-700"
-                            >
-                              {cat.productCategory}
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                )}
-
-                {activeDropdown === "brands" && (
-                  <div>
-                    {loadingBrands ? (
-                      <p className="text-[13px] text-slate-400 animate-pulse">Loading brands…</p>
-                    ) : brands.length === 0 ? (
-                      <p className="text-[13px] text-slate-400 italic">No brands available.</p>
-                    ) : (
-                      <ul className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                        {brands.map((brand) => (
-                          <li key={brand.prodBrandLookupId}>
-                            <Link
-                              /* FIXED: Passing numeric lookup ID instead of name string */
-                              href={`${pathname}?${createFilterQueryString("brand", brand.prodBrandLookupId.toString())}`}
-                              onClick={() => setActiveDropdown(null)}
-                              className="block truncate rounded-lg border border-slate-100 bg-white px-4 py-3 text-left text-[13.5px] font-medium text-slate-600 transition hover:border-sky-100 hover:bg-sky-50/50 hover:text-sky-700"
-                            >
-                              {brand.productBrand}
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                )}
-
-              </div>
-            </div>
-          )}
-        </nav>
       </header>
 
       {/* ---------- Sidebar Drawer (opens on the left, by the hamburger button) ---------- */}
@@ -347,101 +122,15 @@ export default function Navbar() {
               ))}
             </nav>
 
-            <div className="mt-6 flex-1 overflow-y-auto pr-1 border-t border-dashed border-slate-200 pt-4 custom-scrollbar">
-              <div className="mb-4">
-                <button
-                  type="button"
-                  onClick={() => setSidebarCategoriesOpen(!sidebarCategoriesOpen)}
-                  className="flex w-full items-center justify-between py-2 text-left font-mono text-[11px] uppercase tracking-[0.12em] text-slate-400 hover:text-slate-600 transition"
-                >
-                  <span>Categories</span>
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2.5}
-                    className={`h-3 w-3 text-slate-400 transition-transform ${sidebarCategoriesOpen ? "rotate-180" : ""}`}
-                    aria-hidden="true"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                  </svg>
-                </button>
-                
-                {sidebarCategoriesOpen && (
-                  <div className="mt-1 flex flex-col gap-1 pl-2 border-l border-slate-100">
-                    {loadingCategories ? (
-                      <span className="px-3 py-1 text-xs text-slate-400">Loading…</span>
-                    ) : categories.length === 0 ? (
-                      <span className="px-3 py-1 text-xs text-slate-400">No categories</span>
-                    ) : (
-                      categories.map((cat) => (
-                        <Link
-                          key={cat.prodCatLookupId}
-                          /* FIXED: Passing numeric lookup ID instead of name string */
-                          href={`${pathname}?${createFilterQueryString("category", cat.prodCatLookupId.toString())}`}
-                          onClick={() => setSidebarOpen(false)}
-                          className="rounded-lg px-3 py-2 text-left text-[13.5px] font-medium text-slate-600 transition hover:bg-slate-50 hover:text-sky-700"
-                        >
-                          {cat.productCategory}
-                        </Link>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="mb-4">
-                <button
-                  type="button"
-                  onClick={() => setSidebarBrandsOpen(!sidebarBrandsOpen)}
-                  className="flex w-full items-center justify-between py-2 text-left font-mono text-[11px] uppercase tracking-[0.12em] text-slate-400 hover:text-slate-600 transition"
-                >
-                  <span>Brands</span>
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2.5}
-                    className={`h-3 w-3 text-slate-400 transition-transform ${sidebarBrandsOpen ? "rotate-180" : ""}`}
-                    aria-hidden="true"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                  </svg>
-                </button>
-
-                {sidebarBrandsOpen && (
-                  <div className="mt-1 flex flex-col gap-1 pl-2 border-l border-slate-100">
-                    {loadingBrands ? (
-                      <span className="px-3 py-1 text-xs text-slate-400">Loading…</span>
-                    ) : brands.length === 0 ? (
-                      <span className="px-3 py-1 text-xs text-slate-400">No brands</span>
-                    ) : (
-                      brands.map((brand) => (
-                        <Link
-                          key={brand.prodBrandLookupId}
-                          /* FIXED: Passing numeric lookup ID instead of name string */
-                          href={`${pathname}?${createFilterQueryString("brand", brand.prodBrandLookupId.toString())}`}
-                          onClick={() => setSidebarOpen(false)}
-                          className="rounded-lg px-3 py-2 text-left text-[13.5px] font-medium text-slate-600 transition hover:bg-slate-50 hover:text-sky-700"
-                        >
-                          {brand.productBrand}
-                        </Link>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
+            <div className="mt-auto flex-shrink-0 border-t border-dashed border-slate-200 pt-4">
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="w-full rounded-lg border border-slate-200 bg-white py-2.5 text-[13px] font-bold uppercase tracking-wide text-rose-500 transition hover:border-rose-300 hover:bg-rose-50"
+              >
+                Log out
+              </button>
             </div>
-
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="mt-4 flex-shrink-0 rounded-lg border border-slate-200 bg-white py-2.5 text-[13px] font-bold uppercase tracking-wide text-rose-500 transition hover:border-rose-300 hover:bg-rose-50"
-            >
-              Log out
-            </button>
           </aside>
 
           <div

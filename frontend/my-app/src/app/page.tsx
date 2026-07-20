@@ -38,7 +38,7 @@ export default function Home() {
         {/* Actions */}
         <div className="flex flex-col gap-3">
           <Link
-            href="/logIn"
+            href="/login"
             className="flex w-full items-center justify-center rounded-lg bg-[#1f3b57] py-3.5 font-[Barlow_Condensed,sans-serif] text-base font-bold uppercase tracking-wide text-slate-50 transition hover:bg-[#2c527a] active:translate-y-px"
           >
             Sign in

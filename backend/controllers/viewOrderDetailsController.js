@@ -1,5 +1,7 @@
 const orderModel = require('../models/orderModel');
 const orderProductModel = require('../models/orderProductModel');
+const express = require('express');
+const router = express.Router();
 
 async function searchOrder(req, res) {
   try {
@@ -70,12 +72,12 @@ async function displayActiveOrder(req, res) {
   return displayOrderHistory(req, res);
 }
 
-module.exports = {
-  searchOrder,
-  viewActiveOrder,
-  viewOrderHistory,
-  viewAllActiveOrders,
-  viewAllOrderHistory,
-  displayOrderHistory,
-  displayActiveOrder,
-};
+router.get('/orders/search/:id', searchOrder);
+router.get('/orders/active', viewAllActiveOrders);
+router.get('/orders/history', viewAllOrderHistory);
+router.get('/orders/active/:userId', viewActiveOrder);
+router.get('/orders/history/:userId', viewOrderHistory);
+router.get('/orders/:id/history-detail', displayOrderHistory);
+router.get('/orders/:id/active-detail', displayActiveOrder);
+
+module.exports = router;

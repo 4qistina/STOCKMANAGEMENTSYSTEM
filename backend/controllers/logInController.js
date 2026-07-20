@@ -1,4 +1,6 @@
 const userModel = require('../models/userModel');
+const express = require('express');
+const router = express.Router();
 
 async function login(req, res) {
     try {
@@ -16,4 +18,6 @@ async function login(req, res) {
     }
 }
 
-module.exports = { login };
+router.post('/login', login);
+
+module.exports = router;

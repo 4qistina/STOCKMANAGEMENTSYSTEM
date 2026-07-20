@@ -1,4 +1,6 @@
 const productModel = require('../models/productModel');
+const express = require('express');
+const router = express.Router();
 
 /**
  * GET /api/products/menu
@@ -132,11 +134,8 @@ async function deleteProduct(req, res) {
   }
 }
 
-module.exports = { 
-  selectProductMenu, 
-  searchProduct, 
-  viewDetails, 
-  addProduct, 
-  updateProduct, 
-  deleteProduct 
-};
+router.get('/products/menu', selectProductMenu);
+router.get('/products/search', searchProduct);
+router.get('/products/:id', viewDetails);
+
+module.exports = router;

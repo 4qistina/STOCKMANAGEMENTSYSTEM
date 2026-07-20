@@ -1,4 +1,6 @@
 const driverModel = require('../models/driverModel');
+const express = require('express');
+const router = express.Router();
 
 async function viewDriverInfoList(req, res) {
   try {
@@ -35,4 +37,9 @@ async function selectDeleteEditInfo(req, res) {
   }
 }
 
-module.exports = { viewDriverInfoList, selectEditDriverInfo, selectAddNewDriverInfo, selectDeleteEditInfo };
+router.get('/drivers', viewDriverInfoList);
+router.post('/drivers', selectAddNewDriverInfo);
+router.put('/drivers/:id', selectEditDriverInfo);
+router.delete('/drivers/:id', selectDeleteEditInfo);
+
+module.exports = router;

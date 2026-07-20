@@ -1,4 +1,6 @@
 const orderModel = require('../models/orderModel');
+const express = require('express');
+const router = express.Router();
 
 async function viewOrderStatusList(req, res) {
   try {
@@ -17,4 +19,7 @@ async function updateOrderStatus(req, res) {
   }
 }
 
-module.exports = { viewOrderStatusList, updateOrderStatus };
+router.get('/order-status/list', viewOrderStatusList);
+router.put('/order-status/:id', updateOrderStatus);
+
+module.exports = router;

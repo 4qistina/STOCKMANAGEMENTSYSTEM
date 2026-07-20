@@ -1,4 +1,6 @@
 const productModel = require('../models/productModel');
+const express = require('express');
+const router = express.Router();
 
 async function viewProductMenu(req, res) {
   try {
@@ -47,4 +49,10 @@ async function selectDeleteProduct(req, res) {
   }
 }
 
-module.exports = { viewProductMenu, searchProduct, selectAddNewProduct, selectEditProductDetails, selectDeleteProduct };
+router.get('/maintain-product/menu', viewProductMenu);
+router.get('/maintain-product/search/:id', searchProduct);
+router.post('/maintain-product', selectAddNewProduct);
+router.put('/maintain-product/:id', selectEditProductDetails);
+router.delete('/maintain-product/:id', selectDeleteProduct);
+
+module.exports = router;

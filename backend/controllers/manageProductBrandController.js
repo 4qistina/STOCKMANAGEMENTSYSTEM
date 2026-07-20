@@ -1,4 +1,6 @@
 const brandModel = require('../models/prodBrandModel');
+const express = require('express');
+const router = express.Router();
 
 const MAX_LEN = 50; // Special Requirement: brand name max character limit
 
@@ -63,9 +65,9 @@ async function selectDeleteProductBrand(req, res) {
   }
 }
 
-module.exports = {
-  viewBrandList,
-  selectEditProductBrand,
-  selectAddNewProductBrand,
-  selectDeleteProductBrand,
-};
+router.get('/brands', viewBrandList);
+router.post('/brands', selectAddNewProductBrand);
+router.put('/brands/:id', selectEditProductBrand);
+router.delete('/brands/:id', selectDeleteProductBrand);
+
+module.exports = router;

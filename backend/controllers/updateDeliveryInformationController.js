@@ -1,21 +1,19 @@
-const pool = require('../configuration/db');
 const deliveryModel = require('../models/deliveryModel');
 const driverModel = require('../models/driverModel');
 const orderModel = require('../models/orderModel');
+const express = require('express');
+const router = express.Router();
 
 // GET /api/delivery/orders/ready  [1.1/1.2] Orders that are approved and not yet delivered
+// Includes line items and submittedBy (via orderModel.findAllDetailed) so the
+// frontend can show a full order-details view before updating delivery info.
 async function listOrdersForDelivery(req, res) {
   try {
-    const result = await pool.query(
-      `SELECT o."orderID", o."orderNumber", o."orderDate", o."orderStatus", o."deliveryId",
-              d."deliveryDate", d."deliveredDate", d."recipientName", d."deliveryStatus", d."driverId"
-       FROM orders o
-       LEFT JOIN delivery d ON d."deliveryId" = o."deliveryId"
-       WHERE o."orderStatus" = 'Available'
-         AND (d."deliveryId" IS NULL OR d."deliveryStatus" IS DISTINCT FROM 'Delivered')
-       ORDER BY o."orderDate" DESC`
+    const orders = await orderModel.findAllDetailed();
+    const ready = orders.filter(
+      (o) => o.orderStatus === 'Available' && (!o.deliveryId || o.deliveryStatus !== 'Delivered')
     );
-    res.json(result.rows); // [E1: "No records available."] handled client-side when empty
+    res.json(ready); // [E1: "No records available."] handled client-side when empty
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -78,4 +76,9 @@ async function updateDelivery(req, res) {
   }
 }
 
-module.exports = { viewDeliveryInfo, updateDelivery, listOrdersForDelivery, assignDelivery };
+router.get('/delivery/orders/ready', listOrdersForDelivery);
+router.post('/delivery', assignDelivery);
+router.get('/delivery/:id', viewDeliveryInfo);
+router.put('/delivery/:id', updateDelivery);
+
+module.exports = router;

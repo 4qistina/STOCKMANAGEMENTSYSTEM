@@ -1,4 +1,6 @@
 const productModel = require('../models/productModel');
+const express = require('express');
+const router = express.Router();
 
 async function searchProduct(req, res) {
   try {
@@ -37,4 +39,8 @@ async function updateStock(req, res) {
   }
 }
 
-module.exports = { searchProduct, getProductList, updateStock };
+router.get('/stock/search/:id', searchProduct);
+router.get('/stock/list', getProductList);
+router.put('/stock/:id', updateStock);
+
+module.exports = router;

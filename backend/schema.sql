@@ -53,7 +53,7 @@ CREATE TABLE products (
   "productCode"       VARCHAR(50) NOT NULL,
   "productModel"      VARCHAR(100) NOT NULL,
   "productPrice"      DECIMAL(10,2) NOT NULL,
-  "productImage"      VARCHAR(255) DEFAULT NULL,
+  "productImage"      TEXT DEFAULT NULL,
   "handInStock"       INT NOT NULL DEFAULT 0,
   "productStatus"     VARCHAR(20) NOT NULL DEFAULT 'Available',
   "prodCatLookupId"   INT REFERENCES prodcat_lookup("prodCatLookupId"),

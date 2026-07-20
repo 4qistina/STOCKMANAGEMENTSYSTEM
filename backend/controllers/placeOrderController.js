@@ -2,6 +2,8 @@ const pool = require('../configuration/db');
 const orderModel = require('../models/orderModel');
 const orderProductModel = require('../models/orderProductModel');
 const productModel = require('../models/productModel');
+const express = require('express');
+const router = express.Router();
 
 // GET /api/place-order/products
 // Supports optional ?category=&brand=&model= filters, same as /api/products/search
@@ -89,4 +91,7 @@ async function placeOrder(req, res) {
   }
 }
 
-module.exports = { viewProduct, placeOrder };
+router.get('/place-order/products', viewProduct);
+router.post('/place-order', placeOrder);
+
+module.exports = router;

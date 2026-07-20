@@ -1,4 +1,6 @@
 const catModel = require('../models/prodCatModel');
+const express = require('express');
+const router = express.Router();
 
 const MAX_LEN = 100;
 
@@ -63,9 +65,9 @@ async function selectDeleteProductCategory(req, res) {
   }
 }
 
-module.exports = {
-  viewCategoryList,
-  selectEditProductCategory,
-  selectAddNewProductCategory,
-  selectDeleteProductCategory,
-};
+router.get('/categories', viewCategoryList);
+router.post('/categories', selectAddNewProductCategory);
+router.put('/categories/:id', selectEditProductCategory);
+router.delete('/categories/:id', selectDeleteProductCategory);
+
+module.exports = router;

@@ -66,14 +66,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return { ok: false, error: "Please enter a value greater than 0" };
     }
 
-    if (quantity > product.handInStock) {
-      return { ok: false, error: `Only ${product.handInStock} left in stock.` };
-    }
+    // Note: order quantity is intentionally NOT capped by the Supervisor's
+    // current handInStock. Placing an order is how a retail location restocks
+    // when it's running low (or out) — handInStock is just an on-screen
+    // indicator, not a ceiling on what can be requested from the warehouse.
 
     setItems((prev) => {
       const existing = prev.find((i) => i.productID === product.productID);
       if (existing) {
-        const newQuantity = Math.min(existing.quantity + quantity, product.handInStock);
+        const newQuantity = existing.quantity + quantity;
         return prev.map((i) =>
           i.productID === product.productID ? { ...i, quantity: newQuantity } : i
         );

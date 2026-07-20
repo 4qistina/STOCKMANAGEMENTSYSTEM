@@ -2,60 +2,226 @@
 
 import Link from "next/link";
 
+const LIFECYCLE = [
+  {
+    label: "Pending",
+    note: "Supervisor requests stock",
+  },
+  {
+    label: "Available",
+    note: "Warehouse confirms & prepares",
+  },
+  {
+    label: "Delivered",
+    note: "Driver hands it off",
+  },
+];
+
+const SUPERVISOR = [
+    "Browse product catalogue",
+    "Place stock requests",
+    "Track order status",
+];
+
+const WAREHOUSE = [
+    "Maintain product catalogue",
+    "Approve & fulfil orders",
+    "Assign deliveries",
+];
+
 export default function Home() {
-  return (
-    <div className="relative flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_20%_0%,#f4f8fb_0%,#e9f1f7_55%,#dfebf3_100%)] px-5 py-12 font-sans text-slate-700">
-      <div className="relative w-full max-w-[440px] rounded-2xl border border-slate-200 bg-white p-8 pb-6 shadow-[0_30px_60px_-25px_rgba(51,65,60,0.18)]">
-        {/* Header */}
-        <div className="mb-5 flex items-center justify-between">
-          <div className="flex flex-col gap-0.5">
-            <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-slate-400">
-              System
-            </span>
-            <span className="font-mono text-xs tracking-[0.08em] text-sky-600">
-              STOCK-MGMT
-            </span>
-          </div>
-          <div className="flex h-[26px] items-end gap-[2px] opacity-50" aria-hidden="true">
-            {Array.from({ length: 28 }).map((_, i) => (
-              <span
-                key={i}
-                className="h-full bg-slate-400"
-                style={{ width: i % 5 === 0 ? "3px" : "1px" }}
-              />
-            ))}
-          </div>
-        </div>
+    return (
+        <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,#f4f8fb_0%,#e9f1f7_55%,#dfebf3_100%)] text-slate-700">
 
-        <h1 className="font-[Barlow_Condensed,sans-serif] text-3xl font-bold uppercase tracking-wide text-slate-800">
-          Stock Management System
-        </h1>
-        <p className="mb-8 mt-1 text-[13.5px] leading-relaxed text-slate-400">
-          Track inventory, approvals, and stock movement in one place. Sign in
-          to continue or register a new account.
-        </p>
+            {/* decorative barcode */}
+            <div
+                className="absolute right-0 top-0 hidden h-full w-52 opacity-5 lg:block"
+                style={{
+                    backgroundImage:
+                        "repeating-linear-gradient(90deg,#1f3b57 0px,#1f3b57 2px,transparent 2px,transparent 6px,#1f3b57 6px,#1f3b57 7px,transparent 7px,transparent 14px)",
+                }}
+            />
 
-        {/* Actions */}
-        <div className="flex flex-col gap-3">
-          <Link
-            href="/login"
-            className="flex w-full items-center justify-center rounded-lg bg-[#1f3b57] py-3.5 font-[Barlow_Condensed,sans-serif] text-base font-bold uppercase tracking-wide text-slate-50 transition hover:bg-[#2c527a] active:translate-y-px"
-          >
-            Sign in
-          </Link>
-          <Link
-            href="/registerAccount"
-            className="flex w-full items-center justify-center rounded-lg border border-slate-200 bg-slate-50 py-3.5 font-[Barlow_Condensed,sans-serif] text-base font-bold uppercase tracking-wide text-slate-700 transition hover:border-sky-300 hover:bg-sky-400/10 active:translate-y-px"
-          >
-            Register account
-          </Link>
-        </div>
+            {/* NAVBAR */}
 
-        <div className="mt-6 border-t border-dashed border-slate-200" aria-hidden="true" />
-        <p className="mt-3.5 text-center text-[11.5px] text-slate-500">
-          Access is limited to registered supervisors and warehouse staff.
-        </p>
-      </div>
-    </div>
-  );
+            <header className="mx-auto flex h-20 max-w-7xl items-center justify-between px-8">
+
+                <div>
+                    <p className="font-mono text-xs uppercase tracking-[0.25em] text-slate-400">
+                        Utzshop
+                    </p>
+
+                    <p className="font-semibold text-slate-700">
+                        Warehouse Stock Management
+                    </p>
+                </div>
+
+                <Link
+                    href="/login"
+                    className="rounded-lg border border-slate-200 bg-white px-6 py-2 font-semibold shadow-sm transition hover:border-sky-300"
+                >
+                    Sign In
+                </Link>
+
+            </header>
+
+            {/* HERO */}
+
+            <section className="mx-auto grid min-h-[75vh] max-w-7xl grid-cols-1 gap-16 px-8 py-20 lg:grid-cols-2">
+
+                {/* Left */}
+
+                <div className="flex flex-col justify-center">
+
+                    <span className="font-mono text-xs uppercase tracking-[0.25em] text-slate-400">
+                        Inventory Workflow
+                    </span>
+
+                    <h1 className="mt-4 font-[Barlow_Condensed,sans-serif] text-7xl font-bold uppercase leading-none text-slate-800">
+
+                        Request it.
+                        <br />
+                        Stock it.
+                        <br />
+                        <span className="text-sky-600">
+                            Deliver it.
+                        </span>
+
+                    </h1>
+
+                    <p className="mt-8 max-w-xl text-lg leading-8 text-slate-500">
+
+                        One connected platform where supervisors request stock,
+                        warehouse staff fulfil orders, and every delivery remains
+                        visible from start to finish.
+
+                    </p>
+
+                    <div className="mt-12 flex gap-4">
+
+                        <Link
+                            href="/login"
+                            className="rounded-lg bg-[#1f3b57] px-8 py-4 font-[Barlow_Condensed] text-lg font-bold uppercase tracking-wide text-white hover:bg-[#294d72]"
+                        >
+                            Sign In
+                        </Link>
+
+                        <Link
+                            href="/registerAccount"
+                            className="rounded-lg border border-slate-300 bg-white px-8 py-4 font-[Barlow_Condensed] text-lg font-bold uppercase tracking-wide hover:border-sky-300"
+                        >
+                            Register
+                        </Link>
+
+                    </div>
+
+                </div>
+
+                {/* Right */}
+
+                <div className="flex items-center justify-center">
+
+                    <div className="w-full max-w-xl rounded-3xl border border-slate-200 bg-white p-10 shadow-2xl">
+
+                        <h2 className="font-[Barlow_Condensed] text-3xl font-bold uppercase">
+                            Order Lifecycle
+                        </h2>
+
+                        <div className="mt-10 space-y-6">
+
+                            {LIFECYCLE.map((item, index) => (
+
+                                <div
+                                    key={item.label}
+                                    className="flex items-center"
+                                >
+
+                                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-sky-100 font-bold text-sky-600">
+                                        {index + 1}
+                                    </div>
+
+                                    <div className="ml-5">
+
+                                        <h3 className="font-semibold">
+                                            {item.label}
+                                        </h3>
+
+                                        <p className="text-sm text-slate-500">
+                                            {item.note}
+                                        </p>
+
+                                    </div>
+
+                                </div>
+
+                            ))}
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+            {/* FEATURES */}
+
+            <section className="mx-auto max-w-7xl px-8 pb-24">
+
+                <div className="grid gap-8 lg:grid-cols-2">
+
+                    <div className="rounded-3xl border border-slate-200 bg-white/70 p-10">
+
+                        <h2 className="font-[Barlow_Condensed] text-3xl font-bold uppercase">
+                            Supervisor
+                        </h2>
+
+                        <ul className="mt-8 space-y-4">
+
+                            {SUPERVISOR.map((item) => (
+
+                                <li key={item} className="flex items-center gap-3">
+
+                                    <div className="h-2 w-2 rounded-full bg-sky-500"/>
+
+                                    {item}
+
+                                </li>
+
+                            ))}
+
+                        </ul>
+
+                    </div>
+
+                    <div className="rounded-3xl border border-slate-200 bg-white/70 p-10">
+
+                        <h2 className="font-[Barlow_Condensed] text-3xl font-bold uppercase">
+                            Warehouse Staff
+                        </h2>
+
+                        <ul className="mt-8 space-y-4">
+
+                            {WAREHOUSE.map((item) => (
+
+                                <li key={item} className="flex items-center gap-3">
+
+                                    <div className="h-2 w-2 rounded-full bg-sky-500"/>
+
+                                    {item}
+
+                                </li>
+
+                            ))}
+
+                        </ul>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+        </main>
+    );
 }

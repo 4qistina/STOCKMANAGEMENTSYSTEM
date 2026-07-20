@@ -1,45 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-
-interface User {
-  userFullname: string;
-  username: string;
-  role: string;
-}
+import { useRouter } from "next/navigation";
+import { useAuthGuard } from "@/src/lib/useAuthGuard";
 
 export default function WarehouseStaffDashboard() {
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [checking, setChecking] = useState(true);
-
-  useEffect(() => {
-    const stored = localStorage.getItem("user");
-
-    if (!stored) {
-      router.replace("/login");
-      return;
-    }
-
-    const parsed: User = JSON.parse(stored);
-
-    if (parsed.role !== "warehouse_staff") {
-      router.replace("/login");
-      return;
-    }
-
-    setUser(parsed);
-    setChecking(false);
-  }, [router]);
+  const user = useAuthGuard("warehouse_staff");
 
   function handleLogout() {
     localStorage.removeItem("user");
     router.replace("/login");
   }
 
-  if (checking || !user) {
+  if (!user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f4f8fb] text-slate-400">
         Checking access…

@@ -4,13 +4,8 @@ import { useEffect, useState, Suspense, type FormEvent } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/src/app/components/Navbar";
-
-interface User {
-  userId: number;
-  userFullname: string;
-  username: string;
-  role: string;
-}
+import { formatCurrency } from "@/src/lib/format";
+import { useAuthGuard } from "@/src/lib/useAuthGuard";
 
 interface Product {
   productID?: number;
@@ -47,8 +42,7 @@ function ProductListingContent() {
   const activeBrandId = searchParams.get("brand");
   const activeSearchQuery = searchParams.get("search");
 
-  const [user, setUser] = useState<User | null>(null);
-  const [checkingAuth, setCheckingAuth] = useState(true);
+  const user = useAuthGuard("supervisor");
 
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
@@ -81,30 +75,6 @@ function ProductListingContent() {
     router.push(`${pathname}?${params.toString()}`);
   }
 
-  // --- Auth Verification ---
-  useEffect(() => {
-    const stored = localStorage.getItem("user");
-
-    if (!stored) {
-      router.replace("/login");
-      return;
-    }
-
-    try {
-      const parsed: User = JSON.parse(stored);
-      if (parsed.role !== "supervisor") {
-        router.replace("/login");
-        return;
-      }
-      setUser(parsed);
-    } catch (e) {
-      console.error("Failed to parse user from local storage", e);
-      router.replace("/login");
-    } finally {
-      setCheckingAuth(false);
-    }
-  }, [router]);
-
   // --- Fetch category/brand lookups ---
   useEffect(() => {
     let cancelled = false;
@@ -135,7 +105,7 @@ function ProductListingContent() {
 
   // --- Fetch Products ---
   useEffect(() => {
-    if (checkingAuth || !user) return;
+    if (!user) return;
 
     async function fetchFilteredProducts() {
       setLoadingProducts(true);
@@ -169,13 +139,13 @@ function ProductListingContent() {
     }
 
     fetchFilteredProducts();
-  }, [checkingAuth, user, activeCategoryId, activeBrandId, activeSearchQuery]);
+  }, [user, activeCategoryId, activeBrandId, activeSearchQuery]);
 
   function clearAllFilters() {
     router.push(pathname);
   }
 
-  if (checkingAuth || !user) {
+  if (!user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f4f8fb] text-slate-400">
         Checking access…
@@ -415,7 +385,7 @@ function ProductListingContent() {
                     <div>
                       <p className="text-[10px] text-slate-400 uppercase tracking-wider font-mono">Price</p>
                       <p className="text-base font-bold text-slate-900">
-                        ${typeof p.productPrice === "number" ? p.productPrice.toFixed(2) : Number(p.productPrice ?? 0).toFixed(2)}
+                        {formatCurrency(p.productPrice)}
                       </p>
                     </div>
 

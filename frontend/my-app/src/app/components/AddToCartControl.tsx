@@ -7,13 +7,18 @@ interface AddToCartControlProps {
   product: Omit<CartItem, "quantity">;
 }
 
+// A product with low or zero handInStock is exactly why a Supervisor would
+// place an order — it is a "you should reorder this" signal, not a reason to
+// block ordering. Only productStatus === "Not Available" (set by Warehouse
+// Staff via Maintain Product) actually prevents adding it to the cart, per
+// UCD400's [E1] exception.
 export default function AddToCartControl({ product }: AddToCartControlProps) {
   const { addItem } = useCart();
   const [quantity, setQuantity] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [added, setAdded] = useState(false);
 
-  const isUnavailable = product.productStatus === "Not Available" || product.handInStock === 0;
+  const isUnavailable = product.productStatus === "Not Available";
 
   function handleAdd() {
     const result = addItem(product, quantity);
@@ -50,7 +55,6 @@ export default function AddToCartControl({ product }: AddToCartControlProps) {
         <input
           type="number"
           min={1}
-          max={product.handInStock}
           value={quantity}
           onChange={(e) => handleQuantityChange(e.target.value)}
           className="w-16 rounded-md border border-slate-200 px-2 py-1.5 text-sm text-slate-700 focus:border-sky-400 focus:outline-none"

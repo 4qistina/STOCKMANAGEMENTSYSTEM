@@ -1,15 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import AddToCartControl from "@/src/app/components/AddToCartControl";
-
-interface User {
-  userFullname: string;
-  username: string;
-  role: string;
-}
+import { formatCurrency } from "@/src/lib/format";
+import { useAuthGuard } from "@/src/lib/useAuthGuard";
 
 interface Product {
   productID?: number;
@@ -26,42 +22,18 @@ interface Product {
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 export default function ProductDetailPage() {
-  const router = useRouter();
   const params = useParams();
   const productId = params?.id as string;
 
-  const [user, setUser] = useState<User | null>(null);
-  const [checkingAuth, setCheckingAuth] = useState(true);
+  const user = useAuthGuard("supervisor");
 
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
-  // --- Auth Verification ---
-  useEffect(() => {
-    const stored = localStorage.getItem("user");
-    if (!stored) {
-      router.replace("/login");
-      return;
-    }
-    try {
-      const parsed: User = JSON.parse(stored);
-      if (parsed.role !== "supervisor") {
-        router.replace("/login");
-        return;
-      }
-      setUser(parsed);
-    } catch (e) {
-      console.error("Failed to parse user from local storage", e);
-      router.replace("/login");
-    } finally {
-      setCheckingAuth(false);
-    }
-  }, [router]);
-
   // --- Fetch Product Detail ---
   useEffect(() => {
-    if (checkingAuth || !user || !productId) return;
+    if (!user || !productId) return;
 
     let cancelled = false;
 
@@ -89,9 +61,9 @@ export default function ProductDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [checkingAuth, user, productId]);
+  }, [user, productId]);
 
-  if (checkingAuth || !user) {
+  if (!user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f4f8fb] text-slate-400">
         Checking access…
@@ -200,7 +172,7 @@ export default function ProductDetailPage() {
                 </h1>
 
                 <p className="mt-4 text-3xl font-bold text-slate-900">
-                  ${typeof product.productPrice === "number" ? product.productPrice.toFixed(2) : Number(product.productPrice ?? 0).toFixed(2)}
+                  {formatCurrency(product.productPrice)}
                 </p>
 
                 <div className="mt-3 flex items-center gap-2 text-[13px]">

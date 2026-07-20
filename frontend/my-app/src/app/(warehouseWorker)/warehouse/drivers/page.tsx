@@ -1,13 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-
-interface User {
-  userFullname: string;
-  username: string;
-  role: string;
-}
+import { useAuthGuard } from "@/src/lib/useAuthGuard";
 
 interface Driver {
   driverId: number;
@@ -21,9 +15,7 @@ const EMPTY_FORM = { driverName: "", driverPhoneNumb: "" };
 type Mode = "add" | "edit" | null;
 
 export default function ManageDriverInformationPage() {
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [checkingAuth, setCheckingAuth] = useState(true);
+  const user = useAuthGuard("warehouse_staff");
 
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,27 +28,6 @@ export default function ManageDriverInformationPage() {
   const [submitting, setSubmitting] = useState(false);
   const [confirmMessage, setConfirmMessage] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Driver | null>(null);
-
-  useEffect(() => {
-    const stored = localStorage.getItem("user");
-    if (!stored) {
-      router.replace("/login");
-      return;
-    }
-    try {
-      const parsed: User = JSON.parse(stored);
-      if (parsed.role !== "warehouse_staff") {
-        router.replace("/login");
-        return;
-      }
-      setUser(parsed);
-    } catch (e) {
-      console.error("Failed to parse user from local storage", e);
-      router.replace("/login");
-    } finally {
-      setCheckingAuth(false);
-    }
-  }, [router]);
 
   async function loadDrivers() {
     setLoading(true);
@@ -73,9 +44,9 @@ export default function ManageDriverInformationPage() {
   }
 
   useEffect(() => {
-    if (checkingAuth || !user) return;
+    if (!user) return;
     loadDrivers();
-  }, [checkingAuth, user]);
+  }, [user]);
 
   const filteredDrivers = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -176,7 +147,7 @@ export default function ManageDriverInformationPage() {
     }
   }
 
-  if (checkingAuth || !user) {
+  if (!user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f4f8fb] text-slate-400">
         Checking access…

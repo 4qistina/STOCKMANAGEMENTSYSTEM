@@ -1,13 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
-import { useRouter } from "next/navigation";
-
-interface User {
-  userFullname: string;
-  username: string;
-  role: string;
-}
+import { formatCurrency } from "@/src/lib/format";
+import { useAuthGuard } from "@/src/lib/useAuthGuard";
 
 interface Product {
   productID: number;
@@ -68,9 +63,7 @@ function ProductImage({ src, alt, className }: { src?: string | null; alt: strin
 }
 
 export default function MaintainProductPage() {
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [checkingAuth, setCheckingAuth] = useState(true);
+  const user = useAuthGuard("warehouse_staff");
 
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Lookup[]>([]);
@@ -138,27 +131,6 @@ export default function MaintainProductPage() {
     }
   }
 
-  useEffect(() => {
-    const stored = localStorage.getItem("user");
-    if (!stored) {
-      router.replace("/login");
-      return;
-    }
-    try {
-      const parsed: User = JSON.parse(stored);
-      if (parsed.role !== "warehouse_staff") {
-        router.replace("/login");
-        return;
-      }
-      setUser(parsed);
-    } catch (e) {
-      console.error("Failed to parse user from local storage", e);
-      router.replace("/login");
-    } finally {
-      setCheckingAuth(false);
-    }
-  }, [router]);
-
   async function loadAll() {
     setLoading(true);
     try {
@@ -185,9 +157,9 @@ export default function MaintainProductPage() {
   }
 
   useEffect(() => {
-    if (checkingAuth || !user) return;
+    if (!user) return;
     loadAll();
-  }, [checkingAuth, user]);
+  }, [user]);
 
   const filteredProducts = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -332,7 +304,7 @@ export default function MaintainProductPage() {
     }
   }
 
-  if (checkingAuth || !user) {
+  if (!user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f4f8fb] text-slate-400">
         Checking access…
@@ -474,7 +446,7 @@ export default function MaintainProductPage() {
                 <div className="mt-3 flex items-end justify-between border-t border-slate-100 pt-3">
                   <div>
                     <p className="font-mono text-[10px] uppercase tracking-wider text-slate-400">Price</p>
-                    <p className="text-base font-bold text-slate-900">${Number(p.productPrice).toFixed(2)}</p>
+                    <p className="text-base font-bold text-slate-900">{formatCurrency(p.productPrice)}</p>
                   </div>
                   <span
                     className={`rounded-full border px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider ${
@@ -528,7 +500,7 @@ export default function MaintainProductPage() {
                 <h3 className="mt-1 font-[Barlow_Condensed,sans-serif] text-xl font-bold uppercase text-slate-800">
                   {viewingProduct.productModel}
                 </h3>
-                <p className="mt-2 text-2xl font-bold text-slate-900">${Number(viewingProduct.productPrice).toFixed(2)}</p>
+                <p className="mt-2 text-2xl font-bold text-slate-900">{formatCurrency(viewingProduct.productPrice)}</p>
 
                 <div className="mt-3 flex items-center gap-2 text-[13px]">
                   <span className="text-slate-400">Status:</span>
@@ -645,11 +617,12 @@ export default function MaintainProductPage() {
               </div>
               <div>
                 <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                  Price *
+                  Price (RM) *
                 </label>
                 <input
                   type="number"
                   step="0.01"
+                  min="0"
                   value={form.productPrice}
                   onChange={(e) => setForm({ ...form, productPrice: e.target.value })}
                   className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm focus:border-sky-400 focus:outline-none"

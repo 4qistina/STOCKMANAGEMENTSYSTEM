@@ -1,16 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/src/app/components/Navbar";
-
-interface User {
-  userId: number;
-  userFullname: string;
-  username: string;
-  role: string;
-}
+import { formatCurrency } from "@/src/lib/format";
+import { useAuthGuard } from "@/src/lib/useAuthGuard";
 
 interface Product {
   productID: number;
@@ -58,9 +52,7 @@ function ProductImage({ src, alt, className }: { src?: string | null; alt: strin
 }
 
 export default function UpdateProductStockPage() {
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [checkingAuth, setCheckingAuth] = useState(true);
+  const user = useAuthGuard("supervisor");
 
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Lookup[]>([]);
@@ -78,28 +70,6 @@ export default function UpdateProductStockPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [confirmingMessage, setConfirmingMessage] = useState<string | null>(null);
-
-  // --- Auth Verification (Supervisor only) ---
-  useEffect(() => {
-    const stored = localStorage.getItem("user");
-    if (!stored) {
-      router.replace("/login");
-      return;
-    }
-    try {
-      const parsed: User = JSON.parse(stored);
-      if (parsed.role !== "supervisor") {
-        router.replace("/login");
-        return;
-      }
-      setUser(parsed);
-    } catch (e) {
-      console.error("Failed to parse user from local storage", e);
-      router.replace("/login");
-    } finally {
-      setCheckingAuth(false);
-    }
-  }, [router]);
 
   // --- 1.2 The system displays a list of products in the shop ---
   async function loadAll() {
@@ -131,9 +101,9 @@ export default function UpdateProductStockPage() {
   }
 
   useEffect(() => {
-    if (checkingAuth || !user) return;
+    if (!user) return;
     loadAll();
-  }, [checkingAuth, user]);
+  }, [user]);
 
   const filteredProducts = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -209,7 +179,7 @@ export default function UpdateProductStockPage() {
     }
   }
 
-  if (checkingAuth || !user) {
+  if (!user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f4f8fb] text-slate-400">
         Checking access…
@@ -359,7 +329,7 @@ export default function UpdateProductStockPage() {
                   <div className="mt-3 flex items-end justify-between border-t border-slate-100 pt-3">
                     <div>
                       <p className="font-mono text-[10px] uppercase tracking-wider text-slate-400">Price</p>
-                      <p className="text-base font-bold text-slate-900">${Number(p.productPrice).toFixed(2)}</p>
+                      <p className="text-base font-bold text-slate-900">{formatCurrency(p.productPrice)}</p>
                     </div>
                     <span
                       className={`rounded-full border px-2.5 py-1 font-mono text-[11px] font-bold ${
@@ -406,7 +376,7 @@ export default function UpdateProductStockPage() {
               </div>
               <div>
                 <p className="text-[10px] uppercase text-slate-400">Price</p>
-                <p className="font-semibold text-slate-700">${Number(selected.productPrice).toFixed(2)}</p>
+                <p className="font-semibold text-slate-700">{formatCurrency(selected.productPrice)}</p>
               </div>
               <div>
                 <p className="text-[10px] uppercase text-slate-400">Status</p>

@@ -1,16 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/src/app/components/Navbar";
-
-interface User {
-  userId: number;
-  userFullname: string;
-  username: string;
-  role: string;
-}
+import { formatCurrency } from "@/src/lib/format";
+import { useAuthGuard } from "@/src/lib/useAuthGuard";
 
 interface OrderItem {
   productId: number;
@@ -69,21 +63,28 @@ function normalizeStatus(status: string) {
   return status;
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, delivered }: { status: string; delivered?: boolean }) {
   const normalized = normalizeStatus(status);
   const styles: Record<string, string> = {
     Pending: "bg-amber-50 text-amber-700 border-amber-200",
     Available: "bg-sky-50 text-sky-700 border-sky-200",
+    Delivered: "bg-emerald-50 text-emerald-700 border-emerald-200",
   };
+  const key = delivered ? "Delivered" : normalized;
+  const label = delivered ? "Delivered" : STATUS_LABELS[normalized] ?? normalized;
   return (
     <span
       className={`rounded-full border px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider ${
-        styles[normalized] ?? "bg-slate-50 text-slate-600 border-slate-200"
+        styles[key] ?? "bg-slate-50 text-slate-600 border-slate-200"
       }`}
     >
-      {STATUS_LABELS[normalized] ?? normalized}
+      {label}
     </span>
   );
+}
+
+function isDelivered(o: Order) {
+  return o.deliveryStatus === "Delivered" || !!o.deliveredDate;
 }
 
 function OrderCard({ order, index, showDelivery }: { order: Order; index: number; showDelivery: boolean }) {
@@ -104,7 +105,7 @@ function OrderCard({ order, index, showDelivery }: { order: Order; index: number
           <p className="font-mono text-[11px] uppercase tracking-[0.1em] text-slate-400">Order Date</p>
           <p className="text-sm font-semibold text-slate-600">{formatDate(order.orderDate)}</p>
         </div>
-        <StatusBadge status={order.orderStatus} />
+        <StatusBadge status={order.orderStatus} delivered={isDelivered(order)} />
       </div>
 
       {/* Items */}
@@ -131,7 +132,7 @@ function OrderCard({ order, index, showDelivery }: { order: Order; index: number
             <div className="flex flex-shrink-0 items-center gap-6 text-right">
               <div>
                 <p className="font-mono text-[10px] uppercase tracking-wider text-slate-400">Price per unit</p>
-                <p className="text-sm font-semibold text-slate-700">${Number(item.productPrice ?? 0).toFixed(2)}</p>
+                <p className="text-sm font-semibold text-slate-700">{formatCurrency(item.productPrice)}</p>
               </div>
               <div>
                 <p className="font-mono text-[10px] uppercase tracking-wider text-slate-400">Qty</p>
@@ -140,7 +141,7 @@ function OrderCard({ order, index, showDelivery }: { order: Order; index: number
               <div>
                 <p className="font-mono text-[10px] uppercase tracking-wider text-slate-400">Subtotal</p>
                 <p className="text-sm font-bold text-slate-900">
-                  ${(Number(item.productPrice ?? 0) * item.quantity).toFixed(2)}
+                  {formatCurrency(Number(item.productPrice ?? 0) * item.quantity)}
                 </p>
               </div>
             </div>
@@ -151,7 +152,7 @@ function OrderCard({ order, index, showDelivery }: { order: Order; index: number
       {/* Order total */}
       <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-3">
         <span className="text-xs font-bold uppercase tracking-wide text-slate-500">Order Total</span>
-        <span className="text-base font-bold text-slate-900">${orderTotal(order.items).toFixed(2)}</span>
+        <span className="text-base font-bold text-slate-900">{formatCurrency(orderTotal(order.items))}</span>
       </div>
 
       {/* Delivery details (Order History only) */}
@@ -186,9 +187,7 @@ function OrderCard({ order, index, showDelivery }: { order: Order; index: number
 }
 
 export default function OrdersPage() {
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [checkingAuth, setCheckingAuth] = useState(true);
+  const user = useAuthGuard("supervisor");
 
   const [tab, setTab] = useState<Tab>("current");
   const [allOrders, setAllOrders] = useState<Order[] | null>(null);
@@ -199,28 +198,6 @@ export default function OrdersPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [dateFilter, setDateFilter] = useState("");
 
-  // --- Auth Verification ---
-  useEffect(() => {
-    const stored = localStorage.getItem("user");
-    if (!stored) {
-      router.replace("/login");
-      return;
-    }
-    try {
-      const parsed: User = JSON.parse(stored);
-      if (parsed.role !== "supervisor") {
-        router.replace("/login");
-        return;
-      }
-      setUser(parsed);
-    } catch (e) {
-      console.error("Failed to parse user from local storage", e);
-      router.replace("/login");
-    } finally {
-      setCheckingAuth(false);
-    }
-  }, [router]);
-
   // --- Fetch both active + history once, then classify orders ourselves ---
   // Business rule: Pending or Approved-but-not-yet-delivered orders always
   // belong in "Current Orders"; only orders that have actually been
@@ -228,7 +205,7 @@ export default function OrdersPage() {
   // the client so this holds true regardless of how each endpoint buckets
   // things server-side.
   useEffect(() => {
-    if (checkingAuth || !user?.userId) return;
+    if (!user?.userId) return;
     if (allOrders !== null) return;
 
     let cancelled = false;
@@ -263,11 +240,7 @@ export default function OrdersPage() {
     return () => {
       cancelled = true;
     };
-  }, [checkingAuth, user, allOrders]);
-
-  function isDelivered(o: Order) {
-    return o.deliveryStatus === "Delivered" || !!o.deliveredDate;
-  }
+  }, [user, allOrders]);
 
   const orders = useMemo(() => {
     if (!allOrders) return null;
@@ -292,7 +265,7 @@ export default function OrdersPage() {
     setDateFilter("");
   }
 
-  if (checkingAuth || !user) {
+  if (!user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f4f8fb] text-slate-400">
         Checking access…

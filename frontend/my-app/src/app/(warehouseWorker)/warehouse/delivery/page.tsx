@@ -1,13 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-
-interface User {
-  userFullname: string;
-  username: string;
-  role: string;
-}
+import { formatCurrency } from "@/src/lib/format";
+import { useAuthGuard } from "@/src/lib/useAuthGuard";
 
 interface OrderItem {
   productId: number;
@@ -51,9 +46,7 @@ function formatDate(value: string | null) {
 }
 
 export default function UpdateDeliveryInformationPage() {
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [checkingAuth, setCheckingAuth] = useState(true);
+  const user = useAuthGuard("warehouse_staff");
 
   const [orders, setOrders] = useState<DeliveryOrder[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -76,27 +69,6 @@ export default function UpdateDeliveryInformationPage() {
   const [submitting, setSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    const stored = localStorage.getItem("user");
-    if (!stored) {
-      router.replace("/login");
-      return;
-    }
-    try {
-      const parsed: User = JSON.parse(stored);
-      if (parsed.role !== "warehouse_staff") {
-        router.replace("/login");
-        return;
-      }
-      setUser(parsed);
-    } catch (e) {
-      console.error("Failed to parse user from local storage", e);
-      router.replace("/login");
-    } finally {
-      setCheckingAuth(false);
-    }
-  }, [router]);
-
   async function loadAll() {
     setLoading(true);
     try {
@@ -117,9 +89,9 @@ export default function UpdateDeliveryInformationPage() {
   }
 
   useEffect(() => {
-    if (checkingAuth || !user) return;
+    if (!user) return;
     loadAll();
-  }, [checkingAuth, user]);
+  }, [user]);
 
   const filteredOrders = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -192,7 +164,7 @@ export default function UpdateDeliveryInformationPage() {
     }
   }
 
-  if (checkingAuth || !user) {
+  if (!user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f4f8fb] text-slate-400">
         Checking access…
@@ -351,7 +323,7 @@ export default function UpdateDeliveryInformationPage() {
                       <td className="px-3 py-2 font-medium text-slate-700">{item.productModel}</td>
                       <td className="px-3 py-2 text-right text-slate-600">{item.quantity}</td>
                       <td className="px-3 py-2 text-right text-slate-600">
-                        ${Number(item.productPrice ?? 0).toFixed(2)}
+                        {formatCurrency(item.productPrice)}
                       </td>
                     </tr>
                   ))}

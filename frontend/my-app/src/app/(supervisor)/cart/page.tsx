@@ -4,16 +4,17 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useCart } from "@/src/app/contexts/CartContext";
+import { formatCurrency } from "@/src/lib/format";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 function Stepper({
   value,
-  max,
+  max = 999,
   onChange,
 }: {
   value: number;
-  max: number;
+  max?: number;
   onChange: (next: number) => void;
 }) {
   return (
@@ -47,13 +48,39 @@ function Stepper({
 }
 
 export default function CartPage() {
-  const { items, updateQuantity, removeItem, clearCart, totalPrice, totalCount } = useCart();
+  const { items, updateQuantity, removeItem, totalCount } = useCart();
   const router = useRouter();
 
   const [confirming, setConfirming] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [orderSummary, setOrderSummary] = useState<{ orderNumber: string } | null>(null);
+
+  // Which cart items the supervisor wants to include in this order.
+  // Everything starts selected so behavior matches the old "whole cart" flow
+  // unless they deliberately uncheck something.
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(
+    () => new Set(items.map((i) => i.productID))
+  );
+
+  function toggleItem(productID: number) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(productID)) next.delete(productID);
+      else next.add(productID);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds((prev) =>
+      prev.size === items.length ? new Set() : new Set(items.map((i) => i.productID))
+    );
+  }
+
+  const selectedItems = items.filter((i) => selectedIds.has(i.productID));
+  const selectedCount = selectedItems.reduce((sum, i) => sum + i.quantity, 0);
+  const selectedTotal = selectedItems.reduce((sum, i) => sum + i.quantity * i.productPrice, 0);
 
   async function handleConfirmOrder() {
     setSubmitting(true);
@@ -63,14 +90,14 @@ export default function CartPage() {
       const user = stored ? JSON.parse(stored) : null;
       if (!user?.userId) throw new Error("Missing user session. Please log in again.");
 
+      if (selectedItems.length === 0) {
+        throw new Error("Select at least one item to order.");
+      }
+
       // [E2] Re-check quantities before submitting, in case they were edited on this page
-      const invalidQuantity = items.find((i) => !i.quantity || i.quantity <= 0);
+      const invalidQuantity = selectedItems.find((i) => !i.quantity || i.quantity <= 0);
       if (invalidQuantity) {
         throw new Error("Please enter a value greater than 0");
-      }
-      const overStock = items.find((i) => i.quantity > i.handInStock);
-      if (overStock) {
-        throw new Error(`Only ${overStock.handInStock} unit(s) of "${overStock.productModel}" left in stock.`);
       }
 
       const res = await fetch(`${API_BASE}/api/place-order`, {
@@ -78,7 +105,7 @@ export default function CartPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: user.userId,
-          items: items.map((i) => ({ productId: i.productID, quantity: i.quantity })),
+          items: selectedItems.map((i) => ({ productId: i.productID, quantity: i.quantity })),
         }),
       });
 
@@ -86,7 +113,9 @@ export default function CartPage() {
       if (!res.ok) throw new Error(data.error || "Failed to place order");
 
       setOrderSummary({ orderNumber: data.orderNumber });
-      clearCart();
+      // Only clear the items that were actually ordered — anything left
+      // unchecked stays in the cart for later.
+      selectedItems.forEach((i) => removeItem(i.productID));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -214,9 +243,23 @@ export default function CartPage() {
               Review Your Cart
             </h1>
           </div>
-          <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 font-mono text-xs font-bold text-slate-500">
-            {totalCount} item{totalCount === 1 ? "" : "s"}
-          </span>
+          <div className="flex items-center gap-3">
+            <label className="flex cursor-pointer items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500">
+              <input
+                type="checkbox"
+                checked={items.length > 0 && selectedIds.size === items.length}
+                ref={(el) => {
+                  if (el) el.indeterminate = selectedIds.size > 0 && selectedIds.size < items.length;
+                }}
+                onChange={toggleSelectAll}
+                className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-400"
+              />
+              Select all
+            </label>
+            <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 font-mono text-xs font-bold text-slate-500">
+              {totalCount} item{totalCount === 1 ? "" : "s"}
+            </span>
+          </div>
         </div>
 
         <div className="flex flex-col gap-3">
@@ -225,6 +268,17 @@ export default function CartPage() {
               key={item.productID}
               className="flex flex-col gap-4 rounded-2xl border border-slate-200/60 bg-white p-4 shadow-[0_20px_40px_-30px_rgba(51,65,60,0.15)] sm:flex-row sm:items-center sm:p-5"
             >
+              {/* Select */}
+              <label className="flex flex-shrink-0 items-center">
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(item.productID)}
+                  onChange={() => toggleItem(item.productID)}
+                  aria-label={`Select ${item.productModel}`}
+                  className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-400"
+                />
+              </label>
+
               {/* Image */}
               <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-slate-50">
                 {item.productImage ? (
@@ -247,10 +301,10 @@ export default function CartPage() {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[14px] font-bold text-slate-800">{item.productModel}</p>
                 <p className="font-mono text-[11px] text-slate-400">{item.productCode}</p>
-                <p className="mt-1 text-sm font-semibold text-slate-600">${Number(item.productPrice).toFixed(2)}</p>
+                <p className="mt-1 text-sm font-semibold text-slate-600">{formatCurrency(item.productPrice)}</p>
                 {item.quantity > item.handInStock && (
-                  <p className="mt-1 text-[11px] font-medium text-rose-600">
-                    Only {item.handInStock} in stock — please reduce quantity
+                  <p className="mt-1 text-[11px] font-medium text-amber-600">
+                    Restocking above current on-hand count ({item.handInStock})
                   </p>
                 )}
               </div>
@@ -259,11 +313,10 @@ export default function CartPage() {
               <div className="flex items-center justify-between gap-4 sm:justify-end">
                 <Stepper
                   value={item.quantity}
-                  max={item.handInStock}
                   onChange={(next) => updateQuantity(item.productID, next)}
                 />
                 <p className="w-20 text-right text-sm font-bold text-slate-900">
-                  ${(item.quantity * item.productPrice).toFixed(2)}
+                  {formatCurrency(item.quantity * item.productPrice)}
                 </p>
                 <button
                   onClick={() => removeItem(item.productID)}
@@ -289,15 +342,18 @@ export default function CartPage() {
         {/* Summary */}
         <div className="mt-6 rounded-2xl border border-slate-200/60 bg-white p-5 shadow-[0_20px_40px_-30px_rgba(51,65,60,0.15)] sm:p-6">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-bold uppercase tracking-wide text-slate-500">Total</span>
-            <span className="text-xl font-bold text-slate-900">${totalPrice.toFixed(2)}</span>
+            <span className="text-sm font-bold uppercase tracking-wide text-slate-500">
+              Total ({selectedCount} selected)
+            </span>
+            <span className="text-xl font-bold text-slate-900">{formatCurrency(selectedTotal)}</span>
           </div>
 
           {error && <p className="mt-3 text-sm font-medium text-rose-600">{error}</p>}
 
           <button
             onClick={() => setConfirming(true)}
-            className="mt-5 w-full rounded-lg bg-sky-600 px-5 py-3 text-sm font-bold uppercase tracking-wider text-white transition hover:bg-sky-700"
+            disabled={selectedItems.length === 0}
+            className="mt-5 w-full rounded-lg bg-sky-600 px-5 py-3 text-sm font-bold uppercase tracking-wider text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Make Order
           </button>
@@ -314,7 +370,8 @@ export default function CartPage() {
               Confirm Order
             </h3>
             <p className="mt-2 text-sm text-slate-500">
-              Place an order for {totalCount} item{totalCount === 1 ? "" : "s"} totaling ${totalPrice.toFixed(2)}?
+              Place an order for {selectedCount} item{selectedCount === 1 ? "" : "s"} totaling{" "}
+              {formatCurrency(selectedTotal)}?
             </p>
             <div className="mt-5 flex gap-3">
               <button

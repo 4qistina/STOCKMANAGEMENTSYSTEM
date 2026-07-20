@@ -1,13 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-
-interface User {
-  userFullname: string;
-  username: string;
-  role: string;
-}
+import { useAuthGuard } from "@/src/lib/useAuthGuard";
 
 interface Brand {
   prodBrandLookupId: number;
@@ -20,9 +14,7 @@ const MAX_LEN = 50;
 type Mode = "add" | "edit" | null;
 
 export default function ManageProductBrandPage() {
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [checkingAuth, setCheckingAuth] = useState(true);
+  const user = useAuthGuard("warehouse_staff");
 
   const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,28 +29,6 @@ export default function ManageProductBrandPage() {
   const [confirmMessage, setConfirmMessage] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Brand | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
-  // --- Auth verification ---
-  useEffect(() => {
-    const stored = localStorage.getItem("user");
-    if (!stored) {
-      router.replace("/login");
-      return;
-    }
-    try {
-      const parsed: User = JSON.parse(stored);
-      if (parsed.role !== "warehouse_staff") {
-        router.replace("/login");
-        return;
-      }
-      setUser(parsed);
-    } catch (e) {
-      console.error("Failed to parse user from local storage", e);
-      router.replace("/login");
-    } finally {
-      setCheckingAuth(false);
-    }
-  }, [router]);
 
   async function loadBrands() {
     setLoading(true);
@@ -77,9 +47,9 @@ export default function ManageProductBrandPage() {
   }
 
   useEffect(() => {
-    if (checkingAuth || !user) return;
+    if (!user) return;
     loadBrands();
-  }, [checkingAuth, user]);
+  }, [user]);
 
   const filteredBrands = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -179,7 +149,7 @@ export default function ManageProductBrandPage() {
     }
   }
 
-  if (checkingAuth || !user) {
+  if (!user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f4f8fb] text-slate-400">
         Checking access…

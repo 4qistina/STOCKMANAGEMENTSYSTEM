@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Pagination, { paginate } from "@/src/app/components/Pagination";
 import { useAuthGuard } from "@/src/lib/useAuthGuard";
 
 interface Brand {
@@ -56,6 +57,14 @@ export default function ManageProductBrandPage() {
     if (!q) return brands;
     return brands.filter((b) => b.productBrand.toLowerCase().includes(q));
   }, [brands, searchQuery]);
+
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery]);
+
+  const pagedBrands = useMemo(() => paginate(filteredBrands, page), [filteredBrands, page]);
 
   function openAdd() {
     setMode("add");
@@ -231,7 +240,7 @@ export default function ManageProductBrandPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredBrands.map((c) => (
+                {pagedBrands.map((c) => (
                   <tr key={c.prodBrandLookupId} className="transition hover:bg-sky-50/40">
                     <td className="px-5 py-3 font-bold text-slate-800">{c.productBrand}</td>
                     <td className="px-5 py-3 text-right">
@@ -254,6 +263,9 @@ export default function ManageProductBrandPage() {
                 ))}
               </tbody>
             </table>
+            <div className="px-5">
+              <Pagination page={page} totalItems={filteredBrands.length} onChange={setPage} />
+            </div>
           </div>
         )}
       </div>

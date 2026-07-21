@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Pagination, { paginate } from "@/src/app/components/Pagination";
 import { formatCurrency, formatDate, toDateOnly } from "@/src/lib/format";
 import { useAuthGuard } from "@/src/lib/useAuthGuard";
 
@@ -98,6 +99,14 @@ export default function UpdateDeliveryInformationPage() {
   }, [orders, searchQuery, dateFilter]);
 
   const hasActiveFilters = !!(searchQuery || dateFilter);
+
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, dateFilter]);
+
+  const pagedOrders = useMemo(() => paginate(filteredOrders, page), [filteredOrders, page]);
 
   function clearFilters() {
     setSearchQuery("");
@@ -263,7 +272,7 @@ export default function UpdateDeliveryInformationPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredOrders.map((o) => (
+                {pagedOrders.map((o) => (
                   <tr
                     key={o.orderID}
                     onClick={() => openDetails(o)}
@@ -291,6 +300,9 @@ export default function UpdateDeliveryInformationPage() {
                 ))}
               </tbody>
             </table>
+            <div className="px-5">
+              <Pagination page={page} totalItems={filteredOrders.length} onChange={setPage} />
+            </div>
           </div>
         )}
       </div>

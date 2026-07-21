@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Pagination, { paginate } from "@/src/app/components/Pagination";
 import { formatCurrency, formatDate, toDateOnly } from "@/src/lib/format";
 import { useAuthGuard } from "@/src/lib/useAuthGuard";
 
@@ -218,6 +219,7 @@ export default function WarehouseViewOrderDetailsPage() {
   const [searchQuery, setSearchQuery] = useState(""); // matches Order Number / Order ID
   const [dateFilter, setDateFilter] = useState(""); // matches Order Date (yyyy-mm-dd)
   const [statusFilter, setStatusFilter] = useState<"" | "Pending" | "Available">(""); // Active Order tab only
+  const [page, setPage] = useState(1);
 
   // --- Approve Order (merged from Update Order Status use case) ---
   // Orders can only move Pending -> Approved. Once Approved, this action is
@@ -314,6 +316,15 @@ export default function WarehouseViewOrderDetailsPage() {
   }, [orders, searchQuery, dateFilter, statusFilter, tab]);
 
   const hasActiveFilters = !!(searchQuery || dateFilter || (tab === "active" && statusFilter));
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, dateFilter, statusFilter, tab]);
+
+  const pagedOrders = useMemo(
+    () => (filteredOrders ? paginate(filteredOrders, page) : filteredOrders),
+    [filteredOrders, page]
+  );
 
   function clearFilters() {
     setSearchQuery("");
@@ -467,17 +478,20 @@ export default function WarehouseViewOrderDetailsPage() {
             )}
           </div>
         ) : (
-          <div className="flex flex-col gap-4">
-            {filteredOrders.map((order, index) => (
-              <OrderCard
-                key={order.orderID}
-                order={order}
-                index={index}
-                showDelivery={tab === "history"}
-                onUpdateStatus={tab === "active" ? openStatusForm : undefined}
-              />
-            ))}
-          </div>
+          <>
+            <div className="flex flex-col gap-4">
+              {pagedOrders!.map((order, index) => (
+                <OrderCard
+                  key={order.orderID}
+                  order={order}
+                  index={index}
+                  showDelivery={tab === "history"}
+                  onUpdateStatus={tab === "active" ? openStatusForm : undefined}
+                />
+              ))}
+            </div>
+            <Pagination page={page} totalItems={filteredOrders!.length} onChange={setPage} />
+          </>
         )}
       </div>
 

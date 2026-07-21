@@ -4,8 +4,12 @@ import { useEffect, useMemo, useState, Suspense } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/src/app/components/Navbar";
+import Pagination, { paginate } from "@/src/app/components/Pagination";
 import { formatCurrency } from "@/src/lib/format";
 import { useAuthGuard } from "@/src/lib/useAuthGuard";
+
+// Availability filter values: "" = all, "available", "unavailable"
+type AvailabilityFilter = "" | "available" | "unavailable";
 
 interface Product {
   productID?: number;
@@ -153,6 +157,8 @@ function ProductListingContent() {
   // same way the Update Product Stock page's search works — no Enter/submit
   // needed and no URL round-trip.
   const [searchInput, setSearchInput] = useState("");
+  const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>("");
+  const [page, setPage] = useState(1);
 
   function updateFilterParam(name: "category" | "brand", value: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -234,14 +240,24 @@ function ProductListingContent() {
   // Live client-side search filter, applied on top of the server-filtered list
   const searchedProducts = useMemo(() => {
     const q = searchInput.trim().toLowerCase();
-    if (!q) return products;
-    return products.filter(
-      (p) => p.productModel?.toLowerCase().includes(q) || p.productCode?.toLowerCase().includes(q)
-    );
-  }, [products, searchInput]);
+    return products.filter((p) => {
+      const matchesQuery =
+        !q || p.productModel?.toLowerCase().includes(q) || p.productCode?.toLowerCase().includes(q);
+      const matchesAvailability =
+        !availabilityFilter ||
+        (availabilityFilter === "available" && p.productStatus !== "Not Available") ||
+        (availabilityFilter === "unavailable" && p.productStatus === "Not Available");
+      return matchesQuery && matchesAvailability;
+    });
+  }, [products, searchInput, availabilityFilter]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchInput, availabilityFilter, activeCategoryId, activeBrandId]);
 
   function clearAllFilters() {
     setSearchInput("");
+    setAvailabilityFilter("");
     router.push(pathname);
   }
 
@@ -253,7 +269,12 @@ function ProductListingContent() {
     );
   }
 
-  const hasActiveFilters = !!(activeCategoryId || activeBrandId || searchInput.trim());
+  const hasActiveFilters = !!(
+    activeCategoryId ||
+    activeBrandId ||
+    searchInput.trim() ||
+    availabilityFilter
+  );
 
   const activeCategoryName =
     categories.find((c) => c.prodCatLookupId.toString() === activeCategoryId)?.productCategory ??
@@ -263,8 +284,13 @@ function ProductListingContent() {
     activeBrandId;
 
   // Available products render first; "Not Available" products are grouped below.
-  const availableProducts = searchedProducts.filter((p) => p.productStatus !== "Not Available");
-  const unavailableProducts = searchedProducts.filter((p) => p.productStatus === "Not Available");
+  const orderedProducts = [
+    ...searchedProducts.filter((p) => p.productStatus !== "Not Available"),
+    ...searchedProducts.filter((p) => p.productStatus === "Not Available"),
+  ];
+  const pagedProducts = paginate(orderedProducts, page);
+  const availableProducts = pagedProducts.filter((p) => p.productStatus !== "Not Available");
+  const unavailableProducts = pagedProducts.filter((p) => p.productStatus === "Not Available");
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_20%_0%,#f4f8fb_0%,#e9f1f7_55%,#dfebf3_100%)] font-sans text-slate-700">
@@ -286,76 +312,69 @@ function ProductListingContent() {
           </div>
         </div>
 
-        {/* Search & Category/Brand filters (moved here from the navbar) */}
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2.5 transition focus-within:border-sky-400 focus-within:ring-4 focus-within:ring-sky-400/15">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                className="h-4 w-4 flex-shrink-0 text-slate-400"
-                aria-hidden="true"
-              >
-                <circle cx="11" cy="11" r="7" />
-                <path strokeLinecap="round" d="m20 20-3.5-3.5" />
-              </svg>
-              <input
-                type="text"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                placeholder="Search for product name"
-                className="w-full bg-transparent text-[14px] text-slate-700 placeholder:text-slate-400 focus:outline-none"
-              />
-              {searchInput && (
-                <button
-                  type="button"
-                  onClick={() => setSearchInput("")}
-                  aria-label="Clear search"
-                  className="flex-shrink-0 text-slate-400 transition hover:text-rose-500"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth="2"
-                    stroke="currentColor"
-                    className="h-4 w-4"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              )}
-            </div>
+        {/* Search & filter bar */}
+        <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative flex-1">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth="2"
+              stroke="currentColor"
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+            </svg>
+            <input
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Search by product code or model…"
+              className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-[13px] text-slate-700 focus:border-sky-400 focus:outline-none"
+            />
           </div>
-
-          <select
-            value={activeCategoryId ?? ""}
-            onChange={(e) => updateFilterParam("category", e.target.value)}
-            className="rounded-full border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-medium text-slate-600 focus:border-sky-400 focus:outline-none"
-          >
-            <option value="">Categories</option>
-            {categories.map((cat) => (
-              <option key={cat.prodCatLookupId} value={cat.prodCatLookupId}>
-                {cat.productCategory}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={activeBrandId ?? ""}
-            onChange={(e) => updateFilterParam("brand", e.target.value)}
-            className="rounded-full border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-medium text-slate-600 focus:border-sky-400 focus:outline-none"
-          >
-            <option value="">Brands</option>
-            {brands.map((brand) => (
-              <option key={brand.prodBrandLookupId} value={brand.prodBrandLookupId}>
-                {brand.productBrand}
-              </option>
-            ))}
-          </select>
+          <div className="flex flex-wrap gap-2">
+            <select
+              value={activeCategoryId ?? ""}
+              onChange={(e) => updateFilterParam("category", e.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-[13px] text-slate-600 focus:border-sky-400 focus:outline-none"
+            >
+              <option value="">Categories</option>
+              {categories.map((cat) => (
+                <option key={cat.prodCatLookupId} value={cat.prodCatLookupId}>
+                  {cat.productCategory}
+                </option>
+              ))}
+            </select>
+            <select
+              value={activeBrandId ?? ""}
+              onChange={(e) => updateFilterParam("brand", e.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-[13px] text-slate-600 focus:border-sky-400 focus:outline-none"
+            >
+              <option value="">Brands</option>
+              {brands.map((brand) => (
+                <option key={brand.prodBrandLookupId} value={brand.prodBrandLookupId}>
+                  {brand.productBrand}
+                </option>
+              ))}
+            </select>
+            <select
+              value={availabilityFilter}
+              onChange={(e) => setAvailabilityFilter(e.target.value as AvailabilityFilter)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-[13px] text-slate-600 focus:border-sky-400 focus:outline-none"
+            >
+              <option value="">Availability</option>
+              <option value="available">Available</option>
+              <option value="unavailable">Not Available</option>
+            </select>
+            {hasActiveFilters && (
+              <button
+                onClick={clearAllFilters}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-[12px] font-semibold text-rose-600 transition hover:border-rose-300"
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Filter Status Bar */}
@@ -375,6 +394,11 @@ function ProductListingContent() {
             {activeBrandId && (
               <span className="inline-flex items-center gap-1 rounded-md bg-white border border-sky-200 px-2 py-0.5 text-sky-700">
                 Brand: {activeBrandName}
+              </span>
+            )}
+            {availabilityFilter && (
+              <span className="inline-flex items-center gap-1 rounded-md bg-white border border-sky-200 px-2 py-0.5 text-sky-700">
+                {availabilityFilter === "available" ? "Available" : "Not Available"}
               </span>
             )}
             <button
@@ -401,7 +425,7 @@ function ProductListingContent() {
               </div>
             ))}
           </div>
-        ) : products.length === 0 ? (
+        ) : orderedProducts.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white/50 px-6 py-20 text-center">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -453,6 +477,8 @@ function ProductListingContent() {
                 </div>
               </>
             )}
+
+            <Pagination page={page} totalItems={orderedProducts.length} onChange={setPage} />
           </>
         )}
       </div>

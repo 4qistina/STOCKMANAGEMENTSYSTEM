@@ -16,7 +16,12 @@ const manageProductBrandController = require('./controllers/manageProductBrandCo
 
 const app = express();
 app.use(cors({ origin: 'http://localhost:3000' }));
-app.use(express.json());
+// Product images are sent as base64 data URLs (see maintain-products page).
+// Express's default json() body limit is 100kb, which a compressed photo can
+// easily exceed even though the "productImage" column itself is TEXT
+// (unlimited) in schema.sql. Raise the limit so uploads aren't rejected at
+// the HTTP layer before they ever reach the database.
+app.use(express.json({ limit: '10mb' }));
 
 app.get('/', (req, res) => res.send('Utzshop Stock Management System API is running'));
 

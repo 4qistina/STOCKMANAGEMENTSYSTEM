@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Navbar from "@/src/app/components/Navbar";
+import Pagination, { paginate } from "@/src/app/components/Pagination";
 import { formatCurrency } from "@/src/lib/format";
 import { useAuthGuard } from "@/src/lib/useAuthGuard";
 
@@ -127,6 +128,7 @@ export default function UpdateProductStockPage() {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [brandFilter, setBrandFilter] = useState("");
   const [stockFilter, setStockFilter] = useState<StockFilter>("");
+  const [page, setPage] = useState(1);
 
   const [selected, setSelected] = useState<Product | null>(null);
   const [quantityInput, setQuantityInput] = useState("");
@@ -183,6 +185,12 @@ export default function UpdateProductStockPage() {
     });
   }, [products, searchQuery, categoryFilter, brandFilter, stockFilter]);
 
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, categoryFilter, brandFilter, stockFilter]);
+
+  const pagedProducts = useMemo(() => paginate(filteredProducts, page), [filteredProducts, page]);
+
   const lowStockCount = useMemo(() => products.filter((p) => stockLevel(p) === "low").length, [products]);
   const outOfStockCount = useMemo(() => products.filter((p) => stockLevel(p) === "empty").length, [products]);
 
@@ -213,9 +221,10 @@ export default function UpdateProductStockPage() {
     if (!selected) return;
     const parsed = Number(quantityInput);
 
-    // [E1: Error "Please enter a value greater than 0"]
-    if (!quantityInput.trim() || Number.isNaN(parsed) || parsed <= 0) {
-      setFormError("Please enter a value greater than 0");
+    // [E1] Stock can be updated down to 0 (e.g. sold out completely) — only
+    // negative or non-numeric input is rejected.
+    if (!quantityInput.trim() || Number.isNaN(parsed) || parsed < 0) {
+      setFormError("Please enter a value of 0 or greater");
       return;
     }
 
@@ -365,11 +374,14 @@ export default function UpdateProductStockPage() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-            {filteredProducts.map((p) => (
-              <StockProductTile key={p.productID} product={p} onClick={() => openStockForm(p)} />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+              {pagedProducts.map((p) => (
+                <StockProductTile key={p.productID} product={p} onClick={() => openStockForm(p)} />
+              ))}
+            </div>
+            <Pagination page={page} totalItems={filteredProducts.length} onChange={setPage} />
+          </>
         )}
       </div>
 
@@ -412,7 +424,7 @@ export default function UpdateProductStockPage() {
             </label>
             <input
               type="number"
-              min={1}
+              min={0}
               value={quantityInput}
               onChange={(e) => {
                 setQuantityInput(e.target.value.replace(/[^0-9]/g, ""));

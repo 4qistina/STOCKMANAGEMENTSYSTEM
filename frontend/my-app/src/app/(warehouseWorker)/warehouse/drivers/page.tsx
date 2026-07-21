@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Pagination, { paginate } from "@/src/app/components/Pagination";
 import { useAuthGuard } from "@/src/lib/useAuthGuard";
 
 interface Driver {
@@ -55,6 +56,14 @@ export default function ManageDriverInformationPage() {
       (d) => d.driverName.toLowerCase().includes(q) || d.driverPhoneNumb.toLowerCase().includes(q)
     );
   }, [drivers, searchQuery]);
+
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery]);
+
+  const pagedDrivers = useMemo(() => paginate(filteredDrivers, page), [filteredDrivers, page]);
 
   function openAdd() {
     setMode("add");
@@ -220,7 +229,7 @@ export default function ManageDriverInformationPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredDrivers.map((d) => (
+                {pagedDrivers.map((d) => (
                   <tr key={d.driverId} className="transition hover:bg-sky-50/40">
                     <td className="px-5 py-3 font-bold text-slate-800">{d.driverName}</td>
                     <td className="px-5 py-3 text-slate-600">{d.driverPhoneNumb}</td>
@@ -242,6 +251,9 @@ export default function ManageDriverInformationPage() {
                 ))}
               </tbody>
             </table>
+            <div className="px-5">
+              <Pagination page={page} totalItems={filteredDrivers.length} onChange={setPage} />
+            </div>
           </div>
         )}
       </div>

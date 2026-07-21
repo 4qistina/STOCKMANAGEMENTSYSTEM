@@ -48,7 +48,7 @@ function Stepper({
 }
 
 export default function CartPage() {
-  const { items, updateQuantity, removeItem, totalCount } = useCart();
+  const { items, updateQuantity, removeItem } = useCart();
   const router = useRouter();
 
   const [confirming, setConfirming] = useState(false);
@@ -257,7 +257,7 @@ export default function CartPage() {
               Select all
             </label>
             <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 font-mono text-xs font-bold text-slate-500">
-              {totalCount} item{totalCount === 1 ? "" : "s"}
+              {selectedCount} item{selectedCount === 1 ? "" : "s"}
             </span>
           </div>
         </div>
@@ -280,7 +280,10 @@ export default function CartPage() {
               </label>
 
               {/* Image */}
-              <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-slate-50">
+              <Link
+                href={`/products/${item.productID}`}
+                className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-slate-50 transition hover:border-sky-200"
+              >
                 {item.productImage ? (
                   <img src={item.productImage} alt={item.productModel} className="h-full w-full object-cover" />
                 ) : (
@@ -295,10 +298,36 @@ export default function CartPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
                   </svg>
                 )}
+              </Link>
+
+              {/* Product detail: name, code, availability */}
+              <div className="min-w-0 flex-1 sm:flex-none sm:w-48">
+                <Link
+                  href={`/products/${item.productID}`}
+                  className="line-clamp-2 text-sm font-bold text-slate-800 transition hover:text-sky-700"
+                >
+                  {item.productModel || "Unnamed Product"}
+                </Link>
+                <div className="mt-1 flex flex-wrap items-center gap-1.5 font-mono text-[11px] text-slate-400">
+                  <span>{item.productCode ?? "N/A"}</span>
+                  <span>•</span>
+                  {item.productStatus === "Not Available" ? (
+                    <span className="font-semibold text-slate-500">Not Available</span>
+                  ) : item.handInStock === 0 ? (
+                    <span className="font-semibold text-rose-600">Out of Stock</span>
+                  ) : (
+                    <span className="font-semibold text-emerald-600">
+                      {item.handInStock} in stock
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 text-xs text-slate-400 sm:hidden">
+                  {formatCurrency(item.productPrice)} each
+                </p>
               </div>
 
-              {/* Quantity + subtotal + remove */}
-              <div className="flex items-center justify-between gap-4 sm:justify-end">
+              {/* Quantity + subtotal, grouped and right-aligned; remove sits at the far end */}
+              <div className="flex flex-1 items-center justify-end gap-4">
                 <Stepper
                   value={item.quantity}
                   onChange={(next) => updateQuantity(item.productID, next)}

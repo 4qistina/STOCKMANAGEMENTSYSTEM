@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Navbar from "@/src/app/components/Navbar";
+import Pagination, { paginate } from "@/src/app/components/Pagination";
 import { formatCurrency, formatDate, toDateOnly } from "@/src/lib/format";
 import { useAuthGuard } from "@/src/lib/useAuthGuard";
 
@@ -188,6 +189,7 @@ export default function OrdersPage() {
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState("");
   const [dateFilter, setDateFilter] = useState("");
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     if (!user?.userId) return;
@@ -249,6 +251,12 @@ export default function OrdersPage() {
   }, [orders, searchQuery, dateFilter]);
 
   const hasActiveFilters = !!(searchQuery || dateFilter);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, dateFilter, tab]);
+
+  const pagedOrders = useMemo(() => (filteredOrders ? paginate(filteredOrders, page) : filteredOrders), [filteredOrders, page]);
 
   function clearFilters() {
     setSearchQuery("");
@@ -391,11 +399,14 @@ export default function OrdersPage() {
             )}
           </div>
         ) : (
-          <div className="flex flex-col gap-4">
-            {filteredOrders.map((order, index) => (
-              <OrderCard key={order.orderID} order={order} index={index} showDelivery={tab === "history"} />
-            ))}
-          </div>
+          <>
+            <div className="flex flex-col gap-4">
+              {pagedOrders!.map((order, index) => (
+                <OrderCard key={order.orderID} order={order} index={index} showDelivery={tab === "history"} />
+              ))}
+            </div>
+            <Pagination page={page} totalItems={filteredOrders!.length} onChange={setPage} />
+          </>
         )}
       </div>
     </div>

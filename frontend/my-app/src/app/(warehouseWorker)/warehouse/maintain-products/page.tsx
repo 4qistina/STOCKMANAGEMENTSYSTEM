@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import Pagination, { paginate } from "@/src/app/components/Pagination";
 import { formatCurrency } from "@/src/lib/format";
 import { useAuthGuard } from "@/src/lib/useAuthGuard";
 
@@ -130,6 +131,7 @@ export default function MaintainProductPage() {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [brandFilter, setBrandFilter] = useState("");
   const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>("");
+  const [page, setPage] = useState(1);
 
   // --- Details popup ---
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
@@ -232,16 +234,22 @@ export default function MaintainProductPage() {
   }, [products, searchQuery, categoryFilter, brandFilter, availabilityFilter]);
 
   // Available products render first; "Not Available" products are grouped below.
-  const availableProducts = useMemo(
-    () => filteredProducts.filter((p) => p.productStatus === "Available"),
+  const orderedProducts = useMemo(
+    () => [
+      ...filteredProducts.filter((p) => p.productStatus === "Available"),
+      ...filteredProducts.filter((p) => p.productStatus !== "Available"),
+    ],
     [filteredProducts]
   );
-  const unavailableProducts = useMemo(
-    () => filteredProducts.filter((p) => p.productStatus !== "Available"),
-    [filteredProducts]
-  );
+  const pagedProducts = useMemo(() => paginate(orderedProducts, page), [orderedProducts, page]);
+  const availableProducts = pagedProducts.filter((p) => p.productStatus === "Available");
+  const unavailableProducts = pagedProducts.filter((p) => p.productStatus !== "Available");
 
   const hasActiveFilters = !!(searchQuery || categoryFilter || brandFilter || availabilityFilter);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, categoryFilter, brandFilter, availabilityFilter]);
 
   function clearFilters() {
     setSearchQuery("");
@@ -290,7 +298,8 @@ export default function MaintainProductPage() {
       !form.productPrice.trim() ||
       !form.prodCatLookupId ||
       !form.prodBrandLookupId ||
-      !form.productStatus
+      !form.productStatus ||
+      !form.productImage.trim()
     ) {
       return "Please fill in all required fields.";
     }
@@ -342,13 +351,24 @@ export default function MaintainProductPage() {
               body: JSON.stringify(body),
             });
 
-      const data = await res.json();
+      if (res.status === 413) {
+        // The server rejected the request body itself (before it ever reached
+        // Postgres) because it was larger than the API's JSON body limit.
+        throw new Error(
+          "This image is too large to upload. Please choose a smaller photo, or try one with less detail."
+        );
+      }
+
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         const rawMessage: string = data.error || "";
         if (/value too long/i.test(rawMessage) || /character varying/i.test(rawMessage)) {
+          // Legacy safeguard: if the deployed database still has the old
+          // short "productImage" varchar (pre-migration), surface a clear
+          // message instead of a raw Postgres error.
           throw new Error(
-            "This image is too large for the database to store. Ask your backend team to widen the " +
-              "\"productImage\" column (it's currently a short varchar) — see README-CHANGES.md for the exact SQL."
+            "This image is too large for the database to store. The \"productImage\" column needs to be " +
+              "widened to TEXT — run: ALTER TABLE products ALTER COLUMN \"productImage\" TYPE TEXT;"
           );
         }
         throw new Error(rawMessage || "Failed to save product");
@@ -520,6 +540,8 @@ export default function MaintainProductPage() {
                 </div>
               </>
             )}
+
+            <Pagination page={page} totalItems={orderedProducts.length} onChange={setPage} />
           </>
         )}
       </div>
@@ -604,7 +626,7 @@ export default function MaintainProductPage() {
               {/* Click-to-upload image */}
               <div>
                 <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                  Product Image
+                  Product Image *
                 </label>
                 <input
                   ref={fileInputRef}

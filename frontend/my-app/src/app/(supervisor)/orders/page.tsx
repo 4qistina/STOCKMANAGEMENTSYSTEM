@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Navbar from "@/src/app/components/Navbar";
-import { formatCurrency } from "@/src/lib/format";
+import { formatCurrency, formatDate, toDateOnly } from "@/src/lib/format";
 import { useAuthGuard } from "@/src/lib/useAuthGuard";
 
 interface OrderItem {
@@ -36,33 +36,6 @@ interface Order {
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 type Tab = "current" | "history";
-
-/**
- * Parses ISO date string safely and formats it without shifting days due to local timezone offsets.
- */
-function formatDate(value: string | null) {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-
-  // Format using UTC to ensure ISO timestamps match their exact intended date
-  return d.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  });
-}
-
-/**
- * Extracts YYYY-MM-DD from an ISO string for date picker input comparison.
- */
-function toISODateString(value: string | null): string {
-  if (!value) return "";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toISOString().split("T")[0];
-}
 
 function orderTotal(items: OrderItem[]) {
   return items.reduce((sum, i) => sum + Number(i.productPrice ?? 0) * i.quantity, 0);
@@ -266,8 +239,9 @@ export default function OrdersPage() {
       const matchesQuery =
         !q || o.orderNumber?.toLowerCase().includes(q) || String(o.orderID).includes(q);
 
-      // Extract ISO date standard string (YYYY-MM-DD) for accuracy
-      const orderDateIso = toISODateString(o.orderDate);
+      // Compare calendar dates directly — never through a Date object, which
+      // would risk shifting the day depending on the browser's timezone.
+      const orderDateIso = toDateOnly(o.orderDate);
       const matchesDate = !dateFilter || orderDateIso === dateFilter;
 
       return matchesQuery && matchesDate;

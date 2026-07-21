@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { formatCurrency } from "@/src/lib/format";
+import { formatCurrency, formatDate, toDateOnly } from "@/src/lib/format";
 import { useAuthGuard } from "@/src/lib/useAuthGuard";
 
 interface OrderItem {
@@ -44,13 +44,6 @@ const STATUS_LABELS: Record<string, string> = {
 
 type Tab = "active" | "history";
 
-function formatDate(value: string | null) {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-}
-
 function orderTotal(items: OrderItem[]) {
   return items.reduce((sum, i) => sum + Number(i.productPrice ?? 0) * i.quantity, 0);
 }
@@ -68,45 +61,30 @@ function normalizeStatus(status: string) {
   return status;
 }
 
-function isApproved(order: Order) {
-  return normalizeStatus(order.orderStatus) === "Available";
+function isDelivered(order: Order) {
+  return order.deliveryStatus === "Delivered" || !!order.deliveredDate;
 }
 
-// An Approved order still needs a driver assigned before Update Delivery
-// Information can take it further — surface that as its own prompt badge.
-function needsDriver(order: Order) {
-  return isApproved(order) && !order.driverId;
-}
-
+// In Order History every order shown has already been delivered, so its
+// badge should read "Delivered" rather than "Approved" — Approved is only
+// meaningful while the order is still in flight (Active Order tab).
 function StatusBadge({ order }: { order: Order }) {
   const status = normalizeStatus(order.orderStatus);
   const styles: Record<string, string> = {
     Pending: "bg-amber-50 text-amber-700 border-amber-200",
     Available: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    Delivered: "bg-sky-50 text-sky-700 border-sky-200",
   };
+  const key = isDelivered(order) ? "Delivered" : status;
+  const label = isDelivered(order) ? "Delivered" : STATUS_LABELS[status] ?? status;
   return (
-    <div className="flex items-center gap-2">
-      <span
-        title={
-          needsDriver(order)
-            ? "Approved — but no driver has been assigned yet. Assign one in Update Delivery Information."
-            : undefined
-        }
-        className={`rounded-full border px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider ${
-          styles[status] ?? "bg-slate-50 text-slate-600 border-slate-200"
-        }`}
-      >
-        {STATUS_LABELS[status] ?? status}
-      </span>
-      {needsDriver(order) && (
-        <span
-          title="This order is approved but still needs a driver assigned before it can be delivered."
-          className="cursor-help rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-orange-700"
-        >
-          Assign Driver
-        </span>
-      )}
-    </div>
+    <span
+      className={`rounded-full border px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider ${
+        styles[key] ?? "bg-slate-50 text-slate-600 border-slate-200"
+      }`}
+    >
+      {label}
+    </span>
   );
 }
 
@@ -239,6 +217,7 @@ export default function WarehouseViewOrderDetailsPage() {
   // --- Search / filter state ---
   const [searchQuery, setSearchQuery] = useState(""); // matches Order Number / Order ID
   const [dateFilter, setDateFilter] = useState(""); // matches Order Date (yyyy-mm-dd)
+  const [statusFilter, setStatusFilter] = useState<"" | "Pending" | "Available">(""); // Active Order tab only
 
   // --- Approve Order (merged from Update Order Status use case) ---
   // Orders can only move Pending -> Approved. Once Approved, this action is
@@ -275,10 +254,6 @@ export default function WarehouseViewOrderDetailsPage() {
     } finally {
       setLoading(false);
     }
-  }
-
-  function isDelivered(o: Order) {
-    return o.deliveryStatus === "Delivered" || !!o.deliveredDate;
   }
 
   // --- Fetch orders once ---
@@ -328,16 +303,22 @@ export default function WarehouseViewOrderDetailsPage() {
     return orders.filter((o) => {
       const matchesQuery =
         !q || o.orderNumber?.toLowerCase().includes(q) || String(o.orderID).includes(q);
-      const matchesDate = !dateFilter || (o.orderDate && o.orderDate.slice(0, 10) === dateFilter);
-      return matchesQuery && matchesDate;
+      // Compare calendar dates directly (toDateOnly reads the digits straight
+      // out of the string) rather than routing through a Date object, which
+      // would risk shifting the day depending on the browser's timezone.
+      const matchesDate = !dateFilter || toDateOnly(o.orderDate) === dateFilter;
+      const matchesStatus =
+        tab === "history" || !statusFilter || normalizeStatus(o.orderStatus) === statusFilter;
+      return matchesQuery && matchesDate && matchesStatus;
     });
-  }, [orders, searchQuery, dateFilter]);
+  }, [orders, searchQuery, dateFilter, statusFilter, tab]);
 
-  const hasActiveFilters = !!(searchQuery || dateFilter);
+  const hasActiveFilters = !!(searchQuery || dateFilter || (tab === "active" && statusFilter));
 
   function clearFilters() {
     setSearchQuery("");
     setDateFilter("");
+    setStatusFilter("");
   }
 
   if (!user) {
@@ -418,6 +399,17 @@ export default function WarehouseViewOrderDetailsPage() {
             onChange={(e) => setDateFilter(e.target.value)}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-[13px] text-slate-600 focus:border-sky-400 focus:outline-none"
           />
+          {tab === "active" && (
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as "" | "Pending" | "Available")}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-[13px] text-slate-600 focus:border-sky-400 focus:outline-none"
+            >
+              <option value="">Order Status</option>
+              <option value="Pending">Pending</option>
+              <option value="Available">Approved</option>
+            </select>
+          )}
           {hasActiveFilters && (
             <button
               onClick={clearFilters}

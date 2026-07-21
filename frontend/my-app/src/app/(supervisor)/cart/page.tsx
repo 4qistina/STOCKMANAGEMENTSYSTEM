@@ -297,18 +297,6 @@ export default function CartPage() {
                 )}
               </div>
 
-              {/* Info */}
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[14px] font-bold text-slate-800">{item.productModel}</p>
-                <p className="font-mono text-[11px] text-slate-400">{item.productCode}</p>
-                <p className="mt-1 text-sm font-semibold text-slate-600">{formatCurrency(item.productPrice)}</p>
-                {item.quantity > item.handInStock && (
-                  <p className="mt-1 text-[11px] font-medium text-amber-600">
-                    Restocking above current on-hand count ({item.handInStock})
-                  </p>
-                )}
-              </div>
-
               {/* Quantity + subtotal + remove */}
               <div className="flex items-center justify-between gap-4 sm:justify-end">
                 <Stepper

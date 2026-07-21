@@ -112,4 +112,22 @@ async function remove(orderID, client = pool) {
   await client.query('DELETE FROM orders WHERE "orderID" = $1', [orderID]);
 }
 
-module.exports = { findAll, findById, findByUser, findDetailedByUser, findAllDetailed, insert, update, remove };
+async function setOrderNumber(orderID, orderNumber, client = pool) {
+  const result = await client.query(
+    'UPDATE orders SET "orderNumber" = $1 WHERE "orderID" = $2 RETURNING *',
+    [orderNumber, orderID]
+  );
+  return result.rows[0];
+}
+
+module.exports = {
+  findAll,
+  findById,
+  findByUser,
+  findDetailedByUser,
+  findAllDetailed,
+  insert,
+  update,
+  remove,
+  setOrderNumber,
+};

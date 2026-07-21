@@ -51,13 +51,19 @@ async function placeOrder(req, res) {
         throw new Error(`"${product.productModel}" is not available and cannot be ordered.`);
       }
 
-      if (product.handInStock < item.quantity) {
-        throw new Error(`Only ${product.handInStock} unit(s) of "${product.productModel}" left in stock.`);
-      }
+      // Note: intentionally NOT blocked by handInStock here. A Supervisor's
+      // order is a restock request sent to the Warehouse for review — being
+      // low (or completely out of) stock is exactly why they'd place an
+      // order, not a reason to prevent it.
     }
 
-    const orderNumber = 'ORD-' + Date.now();
-    const order = await orderModel.insert({ orderNumber, userId }, client);
+    // Simplified order numbers: previously 'ORD-' + Date.now() produced an
+    // unreadable 13-digit timestamp (e.g. ORD-1784667573166). The orderID is
+    // only known after insert, so create the row with a placeholder first,
+    // then stamp it with the short "ORD<orderID>" number (e.g. ORD1016).
+    let order = await orderModel.insert({ orderNumber: `TEMP-${Date.now()}`, userId }, client);
+    const orderNumber = `ORD${order.orderID}`;
+    order = await orderModel.setOrderNumber(order.orderID, orderNumber, client);
 
     for (const item of items) {
       const product = await productModel.findById(item.productId, client);
@@ -75,7 +81,9 @@ async function placeOrder(req, res) {
         item.productId,
         {
           ...product,
-          handInStock: product.handInStock - item.quantity,
+          // Floored at 0: since orders are no longer capped by handInStock,
+          // a large restock order should never push it negative.
+          handInStock: Math.max(0, product.handInStock - item.quantity),
         },
         client
       );

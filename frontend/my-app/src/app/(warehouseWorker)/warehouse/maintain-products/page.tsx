@@ -281,10 +281,18 @@ export default function MaintainProductPage() {
     setFormError(null);
   }
 
-  // [E2: Required fields missing]
+  // [E2: Required fields missing] — every field in the form is required, not
+  // just code/model/price, so a product can't be saved half-filled-in.
   function validate(): string | null {
-    if (!form.productCode.trim() || !form.productModel.trim() || !form.productPrice.trim()) {
-      return "Please fill in all required fields (code, model, price).";
+    if (
+      !form.productCode.trim() ||
+      !form.productModel.trim() ||
+      !form.productPrice.trim() ||
+      !form.prodCatLookupId ||
+      !form.prodBrandLookupId ||
+      !form.productStatus
+    ) {
+      return "Please fill in all required fields.";
     }
     if (Number.isNaN(Number(form.productPrice)) || Number(form.productPrice) < 0) {
       return "Price must be a valid number.";
@@ -683,7 +691,7 @@ export default function MaintainProductPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                    Category
+                    Category *
                   </label>
                   <select
                     value={form.prodCatLookupId}
@@ -700,7 +708,7 @@ export default function MaintainProductPage() {
                 </div>
                 <div>
                   <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                    Brand
+                    Brand *
                   </label>
                   <select
                     value={form.prodBrandLookupId}
@@ -718,7 +726,7 @@ export default function MaintainProductPage() {
               </div>
               <div>
                 <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                  Status
+                  Status *
                 </label>
                 <select
                   value={form.productStatus}

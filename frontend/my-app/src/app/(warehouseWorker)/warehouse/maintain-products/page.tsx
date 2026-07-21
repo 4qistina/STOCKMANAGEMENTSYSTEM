@@ -38,6 +38,9 @@ const EMPTY_FORM = {
 
 type Mode = "add" | "edit" | null;
 
+// Availability filter values: "" = all, "Available", "Not Available"
+type AvailabilityFilter = "" | "Available" | "Not Available";
+
 function ProductImage({ src, alt, className }: { src?: string | null; alt: string; className?: string }) {
   if (src) {
     return <img src={src} alt={alt} className={className} />;
@@ -62,6 +65,58 @@ function ProductImage({ src, alt, className }: { src?: string | null; alt: strin
   );
 }
 
+function ProductTile({ product, onClick }: { product: Product; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="group flex flex-col rounded-2xl border border-slate-200/60 bg-white p-4 text-left shadow-[0_20px_40px_-30px_rgba(51,65,60,0.15)] transition-all duration-300 hover:-translate-y-1 hover:border-sky-300 hover:shadow-[0_22px_45px_-20px_rgba(14,165,233,0.15)]"
+    >
+      <div className="relative mb-3 h-36 overflow-hidden rounded-xl border border-slate-100">
+        <ProductImage
+          src={product.productImage}
+          alt={product.productModel}
+          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+        />
+        {product.productStatus !== "Available" && (
+          <span className="absolute right-2 top-2 rounded-md bg-slate-600 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-white">
+            Not Available
+          </span>
+        )}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] text-slate-400">
+        {product.categoryName && (
+          <>
+            <span className="uppercase tracking-wide text-slate-500">{product.categoryName}</span>
+            <span>•</span>
+          </>
+        )}
+        <span className="font-semibold uppercase text-sky-600">{product.brandName ?? "Generic"}</span>
+      </div>
+
+      <h3 className="mt-1 line-clamp-2 min-h-[38px] text-[14px] font-bold text-slate-800 transition group-hover:text-sky-700">
+        {product.productModel}
+      </h3>
+
+      <div className="mt-3 flex items-end justify-between border-t border-slate-100 pt-3">
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-wider text-slate-400">Price</p>
+          <p className="text-base font-bold text-slate-900">{formatCurrency(product.productPrice)}</p>
+        </div>
+        <span
+          className={`rounded-full border px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider ${
+            product.productStatus === "Available"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-slate-200 bg-slate-100 text-slate-500"
+          }`}
+        >
+          {product.productStatus}
+        </span>
+      </div>
+    </button>
+  );
+}
+
 export default function MaintainProductPage() {
   const user = useAuthGuard("warehouse_staff");
 
@@ -74,6 +129,7 @@ export default function MaintainProductPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [brandFilter, setBrandFilter] = useState("");
+  const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>("");
 
   // --- Details popup ---
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
@@ -170,16 +226,28 @@ export default function MaintainProductPage() {
         p.productCode?.toLowerCase().includes(q);
       const matchesCategory = !categoryFilter || String(p.prodCatLookupId ?? "") === categoryFilter;
       const matchesBrand = !brandFilter || String(p.prodBrandLookupId ?? "") === brandFilter;
-      return matchesQuery && matchesCategory && matchesBrand;
+      const matchesAvailability = !availabilityFilter || p.productStatus === availabilityFilter;
+      return matchesQuery && matchesCategory && matchesBrand && matchesAvailability;
     });
-  }, [products, searchQuery, categoryFilter, brandFilter]);
+  }, [products, searchQuery, categoryFilter, brandFilter, availabilityFilter]);
 
-  const hasActiveFilters = !!(searchQuery || categoryFilter || brandFilter);
+  // Available products render first; "Not Available" products are grouped below.
+  const availableProducts = useMemo(
+    () => filteredProducts.filter((p) => p.productStatus === "Available"),
+    [filteredProducts]
+  );
+  const unavailableProducts = useMemo(
+    () => filteredProducts.filter((p) => p.productStatus !== "Available"),
+    [filteredProducts]
+  );
+
+  const hasActiveFilters = !!(searchQuery || categoryFilter || brandFilter || availabilityFilter);
 
   function clearFilters() {
     setSearchQuery("");
     setCategoryFilter("");
     setBrandFilter("");
+    setAvailabilityFilter("");
   }
 
   function openAdd() {
@@ -358,7 +426,7 @@ export default function MaintainProductPage() {
               onChange={(e) => setCategoryFilter(e.target.value)}
               className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-[13px] text-slate-600 focus:border-sky-400 focus:outline-none"
             >
-              <option value="">All Categories</option>
+              <option value="">Categories</option>
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
@@ -370,12 +438,21 @@ export default function MaintainProductPage() {
               onChange={(e) => setBrandFilter(e.target.value)}
               className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-[13px] text-slate-600 focus:border-sky-400 focus:outline-none"
             >
-              <option value="">All Brands</option>
+              <option value="">Brands</option>
               {brands.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name}
                 </option>
               ))}
+            </select>
+            <select
+              value={availabilityFilter}
+              onChange={(e) => setAvailabilityFilter(e.target.value as AvailabilityFilter)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-[13px] text-slate-600 focus:border-sky-400 focus:outline-none"
+            >
+              <option value="">Availability</option>
+              <option value="Available">Available</option>
+              <option value="Not Available">Not Available</option>
             </select>
             {hasActiveFilters && (
               <button
@@ -409,58 +486,33 @@ export default function MaintainProductPage() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-            {filteredProducts.map((p) => (
-              <button
-                key={p.productID}
-                onClick={() => setViewingProduct(p)}
-                className="group flex flex-col rounded-2xl border border-slate-200/60 bg-white p-4 text-left shadow-[0_20px_40px_-30px_rgba(51,65,60,0.15)] transition-all duration-300 hover:-translate-y-1 hover:border-sky-300 hover:shadow-[0_22px_45px_-20px_rgba(14,165,233,0.15)]"
-              >
-                <div className="relative mb-3 h-36 overflow-hidden rounded-xl border border-slate-100">
-                  <ProductImage
-                    src={p.productImage}
-                    alt={p.productModel}
-                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                  {p.productStatus !== "Available" && (
-                    <span className="absolute right-2 top-2 rounded-md bg-slate-600 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-white">
-                      Not Available
-                    </span>
-                  )}
-                </div>
+          <>
+            {/* Available products */}
+            {availableProducts.length > 0 && (
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                {availableProducts.map((p) => (
+                  <ProductTile key={p.productID} product={p} onClick={() => setViewingProduct(p)} />
+                ))}
+              </div>
+            )}
 
-                <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] text-slate-400">
-                  {p.categoryName && (
-                    <>
-                      <span className="uppercase tracking-wide text-slate-500">{p.categoryName}</span>
-                      <span>•</span>
-                    </>
-                  )}
-                  <span className="font-semibold uppercase text-sky-600">{p.brandName ?? "Generic"}</span>
-                </div>
-
-                <h3 className="mt-1 line-clamp-2 min-h-[38px] text-[14px] font-bold text-slate-800 transition group-hover:text-sky-700">
-                  {p.productModel}
-                </h3>
-
-                <div className="mt-3 flex items-end justify-between border-t border-slate-100 pt-3">
-                  <div>
-                    <p className="font-mono text-[10px] uppercase tracking-wider text-slate-400">Price</p>
-                    <p className="text-base font-bold text-slate-900">{formatCurrency(p.productPrice)}</p>
-                  </div>
-                  <span
-                    className={`rounded-full border px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider ${
-                      p.productStatus === "Available"
-                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                        : "border-slate-200 bg-slate-100 text-slate-500"
-                    }`}
-                  >
-                    {p.productStatus}
+            {/* Not Available products, grouped below with a divider */}
+            {unavailableProducts.length > 0 && (
+              <>
+                <div className={`mb-4 flex items-center gap-3 ${availableProducts.length > 0 ? "mt-10" : ""}`}>
+                  <span className="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                    Not Available
                   </span>
+                  <div className="h-px flex-1 bg-slate-200" />
                 </div>
-              </button>
-            ))}
-          </div>
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                  {unavailableProducts.map((p) => (
+                    <ProductTile key={p.productID} product={p} onClick={() => setViewingProduct(p)} />
+                  ))}
+                </div>
+              </>
+            )}
+          </>
         )}
       </div>
 

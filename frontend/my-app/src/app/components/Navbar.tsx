@@ -22,7 +22,7 @@ export default function Navbar() {
 
   function handleLogout() {
     localStorage.removeItem("user");
-    router.replace("/login");
+    router.replace("/");
   }
 
   return (

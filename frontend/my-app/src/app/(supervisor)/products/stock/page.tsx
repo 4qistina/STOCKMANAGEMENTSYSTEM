@@ -27,6 +27,18 @@ interface Lookup {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 
+// Threshold below which a stocked (non-zero) product counts as "low stock".
+const LOW_STOCK_THRESHOLD = 5;
+
+// Stock-level filter values: "" = all, "low" = low stock (1-5), "empty" = out of stock
+type StockFilter = "" | "low" | "empty";
+
+function stockLevel(p: Product): "empty" | "low" | "ok" {
+  if (p.handInStock === 0) return "empty";
+  if (p.handInStock <= LOW_STOCK_THRESHOLD) return "low";
+  return "ok";
+}
+
 function ProductImage({ src, alt, className }: { src?: string | null; alt: string; className?: string }) {
   if (src) {
     return <img src={src} alt={alt} className={className} />;
@@ -51,6 +63,56 @@ function ProductImage({ src, alt, className }: { src?: string | null; alt: strin
   );
 }
 
+function StockProductTile({ product, onClick }: { product: Product; onClick: () => void }) {
+  const level = stockLevel(product);
+  return (
+    <button
+      onClick={onClick}
+      className="group flex flex-col rounded-2xl border border-slate-200/60 bg-white p-4 text-left shadow-[0_20px_40px_-30px_rgba(51,65,60,0.15)] transition-all duration-300 hover:-translate-y-1 hover:border-sky-300 hover:shadow-[0_22px_45px_-20px_rgba(14,165,233,0.15)]"
+    >
+      <div className="relative mb-3 h-36 overflow-hidden rounded-xl border border-slate-100">
+        <ProductImage
+          src={product.productImage}
+          alt={product.productModel}
+          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+        />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] text-slate-400">
+        {product.categoryName && (
+          <>
+            <span className="uppercase tracking-wide text-slate-500">{product.categoryName}</span>
+            <span>•</span>
+          </>
+        )}
+        <span className="font-semibold uppercase text-sky-600">{product.brandName ?? "Generic"}</span>
+      </div>
+
+      <h3 className="mt-1 line-clamp-2 min-h-[38px] text-[14px] font-bold text-slate-800 transition group-hover:text-sky-700">
+        {product.productModel}
+      </h3>
+
+      <div className="mt-3 flex items-end justify-between border-t border-slate-100 pt-3">
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-wider text-slate-400">Price</p>
+          <p className="text-base font-bold text-slate-900">{formatCurrency(product.productPrice)}</p>
+        </div>
+        <span
+          className={`rounded-full border px-2.5 py-1 font-mono text-[11px] font-bold ${
+            level === "empty"
+              ? "border-rose-200 bg-rose-50 text-rose-600"
+              : level === "low"
+              ? "border-amber-200 bg-amber-50 text-amber-700"
+              : "border-slate-200 bg-slate-50 text-slate-600"
+          }`}
+        >
+          {product.handInStock} in stock
+        </span>
+      </div>
+    </button>
+  );
+}
+
 export default function UpdateProductStockPage() {
   const user = useAuthGuard("supervisor");
 
@@ -64,6 +126,7 @@ export default function UpdateProductStockPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [brandFilter, setBrandFilter] = useState("");
+  const [stockFilter, setStockFilter] = useState<StockFilter>("");
 
   const [selected, setSelected] = useState<Product | null>(null);
   const [quantityInput, setQuantityInput] = useState("");
@@ -112,16 +175,24 @@ export default function UpdateProductStockPage() {
         !q || p.productModel?.toLowerCase().includes(q) || p.productCode?.toLowerCase().includes(q);
       const matchesCategory = !categoryFilter || String(p.prodCatLookupId ?? "") === categoryFilter;
       const matchesBrand = !brandFilter || String(p.prodBrandLookupId ?? "") === brandFilter;
-      return matchesQuery && matchesCategory && matchesBrand;
+      const matchesStock =
+        !stockFilter ||
+        (stockFilter === "low" && stockLevel(p) === "low") ||
+        (stockFilter === "empty" && stockLevel(p) === "empty");
+      return matchesQuery && matchesCategory && matchesBrand && matchesStock;
     });
-  }, [products, searchQuery, categoryFilter, brandFilter]);
+  }, [products, searchQuery, categoryFilter, brandFilter, stockFilter]);
 
-  const hasActiveFilters = !!(searchQuery || categoryFilter || brandFilter);
+  const lowStockCount = useMemo(() => products.filter((p) => stockLevel(p) === "low").length, [products]);
+  const outOfStockCount = useMemo(() => products.filter((p) => stockLevel(p) === "empty").length, [products]);
+
+  const hasActiveFilters = !!(searchQuery || categoryFilter || brandFilter || stockFilter);
 
   function clearFilters() {
     setSearchQuery("");
     setCategoryFilter("");
     setBrandFilter("");
+    setStockFilter("");
   }
 
   // 1.3 Supervisor select product / 1.4 system displays product details form
@@ -191,15 +262,6 @@ export default function UpdateProductStockPage() {
     <div className="min-h-screen bg-[radial-gradient(circle_at_20%_0%,#f4f8fb_0%,#e9f1f7_55%,#dfebf3_100%)] font-sans text-slate-700">
       <Navbar />
       <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8">
-        <Link
-          href="/products"
-          className="mb-4 inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.12em] text-slate-400 transition hover:text-sky-600"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="h-3 w-3">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-          </svg>
-          Back to Product Directory
-        </Link>
 
         <div className="mb-6">
           <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-slate-400">
@@ -239,7 +301,7 @@ export default function UpdateProductStockPage() {
               onChange={(e) => setCategoryFilter(e.target.value)}
               className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-[13px] text-slate-600 focus:border-sky-400 focus:outline-none"
             >
-              <option value="">All Categories</option>
+              <option value="">Categories</option>
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
@@ -251,12 +313,21 @@ export default function UpdateProductStockPage() {
               onChange={(e) => setBrandFilter(e.target.value)}
               className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-[13px] text-slate-600 focus:border-sky-400 focus:outline-none"
             >
-              <option value="">All Brands</option>
+              <option value="">Brands</option>
               {brands.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name}
                 </option>
               ))}
+            </select>
+            <select
+              value={stockFilter}
+              onChange={(e) => setStockFilter(e.target.value as StockFilter)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-[13px] text-slate-600 focus:border-sky-400 focus:outline-none"
+            >
+              <option value="">Stock Levels</option>
+              <option value="low">Low Stock ({lowStockCount})</option>
+              <option value="empty">Out of Stock ({outOfStockCount})</option>
             </select>
             {hasActiveFilters && (
               <button
@@ -295,57 +366,9 @@ export default function UpdateProductStockPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-            {filteredProducts.map((p) => {
-              const isLow = p.handInStock > 0 && p.handInStock <= 5;
-              const isEmpty = p.handInStock === 0;
-              return (
-                <button
-                  key={p.productID}
-                  onClick={() => openStockForm(p)}
-                  className="group flex flex-col rounded-2xl border border-slate-200/60 bg-white p-4 text-left shadow-[0_20px_40px_-30px_rgba(51,65,60,0.15)] transition-all duration-300 hover:-translate-y-1 hover:border-sky-300 hover:shadow-[0_22px_45px_-20px_rgba(14,165,233,0.15)]"
-                >
-                  <div className="relative mb-3 h-36 overflow-hidden rounded-xl border border-slate-100">
-                    <ProductImage
-                      src={p.productImage}
-                      alt={p.productModel}
-                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                    />
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] text-slate-400">
-                    {p.categoryName && (
-                      <>
-                        <span className="uppercase tracking-wide text-slate-500">{p.categoryName}</span>
-                        <span>•</span>
-                      </>
-                    )}
-                    <span className="font-semibold uppercase text-sky-600">{p.brandName ?? "Generic"}</span>
-                  </div>
-
-                  <h3 className="mt-1 line-clamp-2 min-h-[38px] text-[14px] font-bold text-slate-800 transition group-hover:text-sky-700">
-                    {p.productModel}
-                  </h3>
-
-                  <div className="mt-3 flex items-end justify-between border-t border-slate-100 pt-3">
-                    <div>
-                      <p className="font-mono text-[10px] uppercase tracking-wider text-slate-400">Price</p>
-                      <p className="text-base font-bold text-slate-900">{formatCurrency(p.productPrice)}</p>
-                    </div>
-                    <span
-                      className={`rounded-full border px-2.5 py-1 font-mono text-[11px] font-bold ${
-                        isEmpty
-                          ? "border-rose-200 bg-rose-50 text-rose-600"
-                          : isLow
-                          ? "border-amber-200 bg-amber-50 text-amber-700"
-                          : "border-slate-200 bg-slate-50 text-slate-600"
-                      }`}
-                    >
-                      {p.handInStock} in stock
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
+            {filteredProducts.map((p) => (
+              <StockProductTile key={p.productID} product={p} onClick={() => openStockForm(p)} />
+            ))}
           </div>
         )}
       </div>

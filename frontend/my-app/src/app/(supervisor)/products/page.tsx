@@ -33,6 +33,106 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 const CATEGORY_ENDPOINT = `${API_BASE}/api/categories`;
 const BRAND_ENDPOINT = `${API_BASE}/api/brands`;
 
+function ProductCard({ product, index }: { product: Product; index: number }) {
+  const cardKey = product.productID ?? `product-index-${index}`;
+  const targetProductId = product.productID ?? 0;
+
+  const currentStock = product.handInStock ?? 0;
+  const isLowStock = currentStock <= 5;
+  const isOutOfStock = currentStock === 0;
+  const isUnavailable = product.productStatus === "Not Available";
+
+  return (
+    <Link
+      key={cardKey}
+      href={`/products/${targetProductId}`}
+      className={`group relative flex flex-col rounded-2xl border border-slate-200/60 bg-white p-4 shadow-[0_20px_40px_-30px_rgba(51,65,60,0.15)] transition-all duration-300 hover:-translate-y-1 hover:border-sky-300 hover:shadow-[0_22px_45px_-20px_rgba(14,165,233,0.15)] ${
+        isUnavailable ? "opacity-55 grayscale hover:opacity-75" : ""
+      }`}
+    >
+      {/* Image Holder */}
+      <div className="relative mb-4 flex h-44 items-center justify-center overflow-hidden rounded-xl bg-slate-50 border border-slate-100">
+        {product.productImage ? (
+          <img
+            src={product.productImage}
+            alt={product.productModel ?? "Product Image"}
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        ) : (
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth="1"
+            stroke="currentColor"
+            className="h-12 w-12 text-slate-300"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+          </svg>
+        )}
+
+        {isOutOfStock ? (
+          <span className="absolute left-2.5 top-2.5 rounded-md bg-rose-600 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-white">
+            Out of Stock
+          </span>
+        ) : isLowStock ? (
+          <span className="absolute left-2.5 top-2.5 rounded-md bg-amber-500 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-white">
+            Low Stock ({currentStock})
+          </span>
+        ) : null}
+
+        {isUnavailable && (
+          <span className="absolute right-2.5 top-2.5 rounded-md bg-slate-600 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-white">
+            Not Available
+          </span>
+        )}
+      </div>
+
+      {/* Metadata fields: Category, Brand, Code */}
+      <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] text-slate-400">
+        {product.categoryName && (
+          <>
+            <span className="uppercase tracking-wide text-slate-500">{product.categoryName}</span>
+            <span>•</span>
+          </>
+        )}
+        <span className="uppercase text-sky-600 font-semibold">{product.brandName ?? "Generic"}</span>
+        <span>•</span>
+        <span className="truncate">{product.productCode ?? "N/A"}</span>
+      </div>
+
+      {/* Product Title */}
+      <h3 className="mt-1 line-clamp-2 min-h-[38px] text-[14px] font-bold text-slate-800 transition group-hover:text-sky-700">
+        {product.productModel ?? "Unnamed Product"}
+      </h3>
+
+      {/* Price */}
+      <div className="mt-4 flex items-end justify-between border-t border-slate-100 pt-3">
+        <div>
+          <p className="text-[10px] text-slate-400 uppercase tracking-wider font-mono">Price</p>
+          <p className="text-base font-bold text-slate-900">
+            {formatCurrency(product.productPrice)}
+          </p>
+        </div>
+
+        <span className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-500 transition group-hover:border-sky-400 group-hover:text-sky-600">
+          View
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth="2.5"
+            stroke="currentColor"
+            className="h-3 w-3"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+          </svg>
+        </span>
+      </div>
+    </Link>
+  );
+}
+
 function ProductListingContent() {
   const router = useRouter();
   const pathname = usePathname();
@@ -162,6 +262,10 @@ function ProductListingContent() {
     brands.find((b) => b.prodBrandLookupId.toString() === activeBrandId)?.productBrand ??
     activeBrandId;
 
+  // Available products render first; "Not Available" products are grouped below.
+  const availableProducts = products.filter((p) => p.productStatus !== "Not Available");
+  const unavailableProducts = products.filter((p) => p.productStatus === "Not Available");
+
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_20%_0%,#f4f8fb_0%,#e9f1f7_55%,#dfebf3_100%)] font-sans text-slate-700">
       <Navbar />
@@ -177,7 +281,7 @@ function ProductListingContent() {
               Product Directory
             </h1>
             <p className="text-xs text-slate-400 mt-1">
-              Logged in as <strong className="text-slate-600">{user.userFullname}</strong> (Supervisor)
+              Browse and select products to place a stock order
             </p>
           </div>
         </div>
@@ -202,7 +306,7 @@ function ProductListingContent() {
                 type="text"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                placeholder="Search products, model, or code…"
+                placeholder="Search for product name"
                 className="w-full bg-transparent text-[14px] text-slate-700 placeholder:text-slate-400 focus:outline-none"
               />
             </div>
@@ -213,7 +317,7 @@ function ProductListingContent() {
             onChange={(e) => updateFilterParam("category", e.target.value)}
             className="rounded-full border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-medium text-slate-600 focus:border-sky-400 focus:outline-none"
           >
-            <option value="">All Categories</option>
+            <option value="">Categories</option>
             {categories.map((cat) => (
               <option key={cat.prodCatLookupId} value={cat.prodCatLookupId}>
                 {cat.productCategory}
@@ -226,7 +330,7 @@ function ProductListingContent() {
             onChange={(e) => updateFilterParam("brand", e.target.value)}
             className="rounded-full border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-medium text-slate-600 focus:border-sky-400 focus:outline-none"
           >
-            <option value="">All Brands</option>
+            <option value="">Brands</option>
             {brands.map((brand) => (
               <option key={brand.prodBrandLookupId} value={brand.prodBrandLookupId}>
                 {brand.productBrand}
@@ -306,107 +410,31 @@ function ProductListingContent() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {products.map((p, index) => {
-              const cardKey = p.productID ?? `product-index-${index}`;
-              const targetProductId = p.productID ?? 0;
+          <>
+            {/* Available products */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {availableProducts.map((p, index) => (
+                <ProductCard key={p.productID ?? `available-${index}`} product={p} index={index} />
+              ))}
+            </div>
 
-              const currentStock = p.handInStock ?? 0;
-              const isLowStock = currentStock <= 5;
-              const isOutOfStock = currentStock === 0;
-              const isUnavailable = p.productStatus === "Not Available";
-
-              return (
-                <Link
-                  key={cardKey}
-                  href={`/products/${targetProductId}`}
-                  className={`group relative flex flex-col rounded-2xl border border-slate-200/60 bg-white p-4 shadow-[0_20px_40px_-30px_rgba(51,65,60,0.15)] transition-all duration-300 hover:-translate-y-1 hover:border-sky-300 hover:shadow-[0_22px_45px_-20px_rgba(14,165,233,0.15)] ${
-                    isUnavailable ? "opacity-55 grayscale hover:opacity-75" : ""
-                  }`}
-                >
-                  {/* Image Holder */}
-                  <div className="relative mb-4 flex h-44 items-center justify-center overflow-hidden rounded-xl bg-slate-50 border border-slate-100">
-                    {p.productImage ? (
-                      <img
-                        src={p.productImage}
-                        alt={p.productModel ?? "Product Image"}
-                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                      />
-                    ) : (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth="1"
-                        stroke="currentColor"
-                        className="h-12 w-12 text-slate-300"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-                      </svg>
-                    )}
-
-                    {isOutOfStock ? (
-                      <span className="absolute left-2.5 top-2.5 rounded-md bg-rose-600 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-white">
-                        Out of Stock
-                      </span>
-                    ) : isLowStock ? (
-                      <span className="absolute left-2.5 top-2.5 rounded-md bg-amber-500 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-white">
-                        Low Stock ({currentStock})
-                      </span>
-                    ) : null}
-
-                    {p.productStatus === "Not Available" && (
-                      <span className="absolute right-2.5 top-2.5 rounded-md bg-slate-600 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-white">
-                        Not Available
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Metadata fields: Category, Brand, Code */}
-                  <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] text-slate-400">
-                    {p.categoryName && (
-                      <>
-                        <span className="uppercase tracking-wide text-slate-500">{p.categoryName}</span>
-                        <span>•</span>
-                      </>
-                    )}
-                    <span className="uppercase text-sky-600 font-semibold">{p.brandName ?? "Generic"}</span>
-                    <span>•</span>
-                    <span className="truncate">{p.productCode ?? "N/A"}</span>
-                  </div>
-
-                  {/* Product Title */}
-                  <h3 className="mt-1 line-clamp-2 min-h-[38px] text-[14px] font-bold text-slate-800 transition group-hover:text-sky-700">
-                    {p.productModel ?? "Unnamed Product"}
-                  </h3>
-
-                  {/* Price */}
-                  <div className="mt-4 flex items-end justify-between border-t border-slate-100 pt-3">
-                    <div>
-                      <p className="text-[10px] text-slate-400 uppercase tracking-wider font-mono">Price</p>
-                      <p className="text-base font-bold text-slate-900">
-                        {formatCurrency(p.productPrice)}
-                      </p>
-                    </div>
-
-                    <span className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-500 transition group-hover:border-sky-400 group-hover:text-sky-600">
-                      View
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth="2.5"
-                        stroke="currentColor"
-                        className="h-3 w-3"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                      </svg>
-                    </span>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
+            {/* Not Available products, grouped below with a divider */}
+            {unavailableProducts.length > 0 && (
+              <>
+                <div className="mt-10 mb-4 flex items-center gap-3">
+                  <span className="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                    Not Available
+                  </span>
+                  <div className="h-px flex-1 bg-slate-200" />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  {unavailableProducts.map((p, index) => (
+                    <ProductCard key={p.productID ?? `unavailable-${index}`} product={p} index={index} />
+                  ))}
+                </div>
+              </>
+            )}
+          </>
         )}
       </div>
     </div>

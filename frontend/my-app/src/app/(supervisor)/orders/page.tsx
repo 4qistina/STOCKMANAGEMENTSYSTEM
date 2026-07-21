@@ -22,6 +22,7 @@ interface Order {
   orderDate: string;
   orderStatus: string;
   deliveryId: number | null;
+  submittedBy?: string | null;
   items: OrderItem[];
   deliveryDate: string | null;
   deliveredDate: string | null;
@@ -36,30 +37,47 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 type Tab = "current" | "history";
 
+/**
+ * Parses ISO date string safely and formats it without shifting days due to local timezone offsets.
+ */
 function formatDate(value: string | null) {
   if (!value) return "—";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+
+  // Format using UTC to ensure ISO timestamps match their exact intended date
+  return d.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+/**
+ * Extracts YYYY-MM-DD from an ISO string for date picker input comparison.
+ */
+function toISODateString(value: string | null): string {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toISOString().split("T")[0];
 }
 
 function orderTotal(items: OrderItem[]) {
   return items.reduce((sum, i) => sum + Number(i.productPrice ?? 0) * i.quantity, 0);
 }
 
-// The API still stores/sends the underlying value as "Available" for backend
-// compatibility; "Approved" is purely the label shown to Supervisors. Matched
-// case-insensitively so orders don't lose their color if the stored value's
-// casing ever differs (e.g. seed data written directly via SQL).
 const STATUS_LABELS: Record<string, string> = {
   Pending: "Pending",
   Available: "Approved",
+  Approved: "Approved",
 };
 
 function normalizeStatus(status: string) {
   const lower = status.trim().toLowerCase();
   if (lower === "pending") return "Pending";
-  if (lower === "available") return "Available";
+  if (lower === "available" || lower === "approved") return "Available";
   return status;
 }
 
@@ -194,16 +212,10 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // --- Search / filter state (Order ID, Order Number, Order Date) ---
+  // Search & Filter state
   const [searchQuery, setSearchQuery] = useState("");
   const [dateFilter, setDateFilter] = useState("");
 
-  // --- Fetch both active + history once, then classify orders ourselves ---
-  // Business rule: Pending or Approved-but-not-yet-delivered orders always
-  // belong in "Current Orders"; only orders that have actually been
-  // delivered move to "Order History". We classify by delivery status on
-  // the client so this holds true regardless of how each endpoint buckets
-  // things server-side.
   useEffect(() => {
     if (!user?.userId) return;
     if (allOrders !== null) return;
@@ -253,7 +265,11 @@ export default function OrdersPage() {
     return orders.filter((o) => {
       const matchesQuery =
         !q || o.orderNumber?.toLowerCase().includes(q) || String(o.orderID).includes(q);
-      const matchesDate = !dateFilter || (o.orderDate && o.orderDate.slice(0, 10) === dateFilter);
+
+      // Extract ISO date standard string (YYYY-MM-DD) for accuracy
+      const orderDateIso = toISODateString(o.orderDate);
+      const matchesDate = !dateFilter || orderDateIso === dateFilter;
+
       return matchesQuery && matchesDate;
     });
   }, [orders, searchQuery, dateFilter]);
@@ -285,9 +301,12 @@ export default function OrdersPage() {
           <h1 className="font-[Barlow_Condensed,sans-serif] text-3xl font-bold uppercase tracking-wide text-slate-800">
             My Orders
           </h1>
+          <p className="mt-1 text-xs text-slate-400">
+            View your current orders (pending or approved) and review your delivered order history
+          </p>
         </div>
 
-        {/* Tabs (A1 / A2) */}
+        {/* Tabs */}
         <div className="mb-6 inline-flex rounded-full border border-slate-200 bg-white p-1">
           <button
             type="button"
@@ -309,7 +328,7 @@ export default function OrdersPage() {
           </button>
         </div>
 
-        {/* Search & filter bar: Order ID / Order Number / Order Date */}
+        {/* Search & filter bar */}
         <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center">
           <div className="relative flex-1">
             <svg
@@ -356,7 +375,6 @@ export default function OrdersPage() {
             <p className="text-sm font-medium text-rose-600">{error}</p>
           </div>
         ) : !filteredOrders || filteredOrders.length === 0 ? (
-          // [E1: Error "No Record Found"]
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white/50 px-6 py-20 text-center">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -364,7 +382,7 @@ export default function OrdersPage() {
               viewBox="0 0 24 24"
               strokeWidth="1.5"
               stroke="currentColor"
-              className="mx-auto h-12 w-12 text-slate-300 mb-4"
+              className="mx-auto mb-4 h-12 w-12 text-slate-300"
             >
               <path
                 strokeLinecap="round"

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Pagination, { paginate } from "@/src/app/components/Pagination";
 import { useAuthGuard } from "@/src/lib/useAuthGuard";
 
 interface Category {
@@ -56,6 +57,14 @@ export default function ManageProductCategoryPage() {
     if (!q) return categories;
     return categories.filter((c) => c.productCategory.toLowerCase().includes(q));
   }, [categories, searchQuery]);
+
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery]);
+
+  const pagedCategories = useMemo(() => paginate(filteredCategories, page), [filteredCategories, page]);
 
   function openAdd() {
     setMode("add");
@@ -231,7 +240,7 @@ export default function ManageProductCategoryPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredCategories.map((c) => (
+                {pagedCategories.map((c) => (
                   <tr key={c.prodCatLookupId} className="transition hover:bg-sky-50/40">
                     <td className="px-5 py-3 font-bold text-slate-800">{c.productCategory}</td>
                     <td className="px-5 py-3 text-right">
@@ -254,6 +263,9 @@ export default function ManageProductCategoryPage() {
                 ))}
               </tbody>
             </table>
+            <div className="px-5">
+              <Pagination page={page} totalItems={filteredCategories.length} onChange={setPage} />
+            </div>
           </div>
         )}
       </div>

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { formatCurrency } from "@/src/lib/format";
+import Pagination, { paginate } from "@/src/app/components/Pagination";
+import { formatCurrency, formatDate, toDateOnly } from "@/src/lib/format";
 import { useAuthGuard } from "@/src/lib/useAuthGuard";
 
 interface OrderItem {
@@ -37,13 +38,6 @@ interface Driver {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 const todayStr = () => new Date().toISOString().slice(0, 10);
-
-function formatDate(value: string | null) {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-}
 
 export default function UpdateDeliveryInformationPage() {
   const user = useAuthGuard("warehouse_staff");
@@ -97,10 +91,27 @@ export default function UpdateDeliveryInformationPage() {
     const q = searchQuery.trim().toLowerCase();
     return orders.filter((o) => {
       const matchesQuery = !q || o.orderNumber.toLowerCase().includes(q);
-      const matchesDate = !dateFilter || (o.orderDate && o.orderDate.slice(0, 10) === dateFilter);
+      // Compare calendar dates directly — never through a Date object, which
+      // would risk shifting the day depending on the browser's timezone.
+      const matchesDate = !dateFilter || toDateOnly(o.orderDate) === dateFilter;
       return matchesQuery && matchesDate;
     });
   }, [orders, searchQuery, dateFilter]);
+
+  const hasActiveFilters = !!(searchQuery || dateFilter);
+
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, dateFilter]);
+
+  const pagedOrders = useMemo(() => paginate(filteredOrders, page), [filteredOrders, page]);
+
+  function clearFilters() {
+    setSearchQuery("");
+    setDateFilter("");
+  }
 
   function openDetails(order: DeliveryOrder) {
     setViewing(order);
@@ -216,6 +227,14 @@ export default function UpdateDeliveryInformationPage() {
             onChange={(e) => setDateFilter(e.target.value)}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-[13px] text-slate-600 focus:border-sky-400 focus:outline-none"
           />
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-[12px] font-semibold text-rose-600 transition hover:border-rose-300"
+            >
+              Clear
+            </button>
+          )}
         </div>
 
         {loading ? (
@@ -232,6 +251,14 @@ export default function UpdateDeliveryInformationPage() {
         ) : filteredOrders.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-200 bg-white/50 px-6 py-16 text-center">
             <p className="text-sm font-medium text-slate-500">No orders match your search or filters.</p>
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="mt-4 rounded-lg bg-sky-100 px-4 py-2 text-xs font-bold uppercase tracking-wider text-sky-800 transition hover:bg-sky-200"
+              >
+                Reset Filters
+              </button>
+            )}
           </div>
         ) : (
           <div className="overflow-hidden rounded-2xl border border-slate-200/60 bg-white shadow-[0_20px_40px_-30px_rgba(51,65,60,0.15)]">
@@ -245,7 +272,7 @@ export default function UpdateDeliveryInformationPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredOrders.map((o) => (
+                {pagedOrders.map((o) => (
                   <tr
                     key={o.orderID}
                     onClick={() => openDetails(o)}
@@ -273,6 +300,9 @@ export default function UpdateDeliveryInformationPage() {
                 ))}
               </tbody>
             </table>
+            <div className="px-5">
+              <Pagination page={page} totalItems={filteredOrders.length} onChange={setPage} />
+            </div>
           </div>
         )}
       </div>

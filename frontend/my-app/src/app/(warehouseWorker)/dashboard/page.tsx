@@ -8,11 +8,6 @@ export default function WarehouseStaffDashboard() {
   const router = useRouter();
   const user = useAuthGuard("warehouse_staff");
 
-  function handleLogout() {
-    localStorage.removeItem("user");
-    router.replace("/login");
-  }
-
   if (!user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f4f8fb] text-slate-400">
@@ -50,12 +45,6 @@ export default function WarehouseStaffDashboard() {
               Welcome, {user.userFullname}
             </h1>
           </div>
-          <button
-            onClick={handleLogout}
-            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-sky-300 hover:text-sky-600"
-          >
-            Log out
-          </button>
         </div>
 
         {/* Stats */}

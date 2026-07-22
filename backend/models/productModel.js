@@ -44,6 +44,7 @@ async function insert(data, client = pool) {
     productModel,
     productPrice,
     handInStock,
+    productStatus,
     prodCatLookupId,
     prodBrandLookupId,
     productImage
@@ -51,13 +52,14 @@ async function insert(data, client = pool) {
 
   const result = await client.query(
     `INSERT INTO products
-      ("productCode", "productModel", "productPrice", "handInStock", "prodCatLookupId", "prodBrandLookupId", "productImage")
-     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      ("productCode", "productModel", "productPrice", "handInStock", "productStatus", "prodCatLookupId", "prodBrandLookupId", "productImage")
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
     [
       productCode,
       productModel,
       productPrice,
       handInStock,
+      productStatus || 'Available',
       prodCatLookupId,
       prodBrandLookupId,
       productImage || null

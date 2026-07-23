@@ -280,7 +280,10 @@ export default function UpdateProductStockPage() {
             Update Product Stock
           </h1>
           <p className="mt-1 text-xs text-slate-400">
-            Click a product below to update its hand-in-stock quantity after new items are delivered.
+            Click a product below to update its hand-in-stock quantity after new items are delivered. 
+          </p>
+          <p className="mt-1 text-xs text-slate-400">
+            Product that is below 5 considered as low stock.
           </p>
         </div>
 

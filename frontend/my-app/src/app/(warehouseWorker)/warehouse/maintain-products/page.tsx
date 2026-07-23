@@ -419,6 +419,9 @@ export default function MaintainProductPage() {
             <h1 className="font-[Barlow_Condensed,sans-serif] text-3xl font-bold uppercase tracking-wide text-slate-800">
               Maintain Product
             </h1>
+            <p className="mt-1 text-xs text-slate-400">
+            Add, Edit or Remove Product
+          </p>
           </div>
           <button
             onClick={openAdd}

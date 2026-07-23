@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useState } from "react";
 
 const SIDEBAR_LINKS = [
-  { label: "Dashboard", href: "/dashboard" },
+  { label: "Dashboard", href: "/warehouse/dashboard" },
   { label: "Maintain Product", href: "/warehouse/maintain-products" },
   { label: "Categories", href: "/warehouse/categories" },
   { label: "Brands", href: "/warehouse/brands" },
@@ -21,6 +21,7 @@ export default function WarehouseNavbar() {
 
   function handleLogout() {
     localStorage.removeItem("user");
+    document.cookie = "role=; path=/; max-age=0";
     router.replace("/login");
   }
 

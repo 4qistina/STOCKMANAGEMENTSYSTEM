@@ -9,6 +9,7 @@ import { useCart } from "@/src/app/contexts/CartContext";
 // the Products page itself (search/filtering only makes sense there) — the
 // navbar stays focused on navigation, cart, and account actions on every page.
 const SIDEBAR_LINKS = [
+  { label: "Dashboard", href: "/dashboard" },
   { label: "Product List", href: "/products" },
   { label: "View Orders", href: "/orders" },
   { label: "Update Product Stock", href: "/products/stock" },
@@ -22,6 +23,7 @@ export default function Navbar() {
 
   function handleLogout() {
     localStorage.removeItem("user");
+    document.cookie = "role=; path=/; max-age=0";
     router.replace("/");
   }
 

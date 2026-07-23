@@ -13,6 +13,7 @@ const manageDriverInformationController = require('./controllers/manageDriverInf
 const updateDeliveryInformationController = require('./controllers/updateDeliveryInformationController');
 const manageProductCategoryController = require('./controllers/manageProductCategoryController');
 const manageProductBrandController = require('./controllers/manageProductBrandController');
+const { requireRole } = require('./middleware/roleCheck');
 
 const app = express();
 app.use(cors({ origin: 'http://localhost:3000' }));
@@ -34,11 +35,11 @@ app.use('/api', viewOrderDetailsController);
 app.use('/api', updateProductStockController);
 
 // Warehouse Staff-only use cases
-app.use('/api', maintainProductController);
-app.use('/api', updateOrderStatusController);
-app.use('/api', manageDriverInformationController);
-app.use('/api', updateDeliveryInformationController);
-app.use('/api', manageProductCategoryController);
-app.use('/api', manageProductBrandController);
+app.use('/api', requireRole('warehouse_staff'), maintainProductController);
+app.use('/api', requireRole('warehouse_staff'), updateOrderStatusController);
+app.use('/api', requireRole('warehouse_staff'), manageDriverInformationController);
+app.use('/api', requireRole('warehouse_staff'), updateDeliveryInformationController);
+app.use('/api', requireRole('warehouse_staff'), manageProductCategoryController);
+app.use('/api', requireRole('warehouse_staff'), manageProductBrandController);
 
 module.exports = app;

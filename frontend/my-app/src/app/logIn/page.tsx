@@ -20,8 +20,8 @@ const INITIAL_FORM: LoginForm = {
 };
 
 const ROLE_REDIRECTS: Record<string, string> = {
-  supervisor: "/products",
-  warehouse_staff: "/dashboard",
+  supervisor: "/dashboard",
+  warehouse_staff: "/warehouse/dashboard",
 };
 
 export default function LoginPage() {
@@ -61,6 +61,10 @@ export default function LoginPage() {
       }
 
       localStorage.setItem("user", JSON.stringify({ ...data.user, userId: data.user.userID }));
+      // Mirror the role into a cookie too — localStorage isn't visible to
+      // middleware.ts (it runs on the server), so route protection there
+      // reads this instead. Not a session/auth token, just a routing hint.
+      document.cookie = `role=${data.user.role}; path=/; max-age=${60 * 60 * 24}; samesite=lax`;
 
       setStatus({ state: "success", message: data.message || "Login successful." });
 

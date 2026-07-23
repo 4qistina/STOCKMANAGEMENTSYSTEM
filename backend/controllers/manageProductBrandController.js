@@ -56,8 +56,20 @@ async function selectEditProductBrand(req, res) {
   }
 }
 
+// If any product (including already-deleted ones) still references this
+// brand, soft delete instead of hard delete. Otherwise hard delete.
 async function selectDeleteProductBrand(req, res) {
   try {
+    const brand = await brandModel.findById(req.params.id);
+    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+
+    const referenced = await brandModel.isReferenced(req.params.id);
+
+    if (referenced) {
+      await brandModel.softDelete(req.params.id);
+      return res.status(200).json({ message: 'Brand is still referenced by product(s), so it was archived (soft deleted) instead of removed.' });
+    }
+
     await brandModel.remove(req.params.id);
     res.status(204).send();
   } catch (err) {
@@ -65,9 +77,34 @@ async function selectDeleteProductBrand(req, res) {
   }
 }
 
+// So warehouse staff can see brands that were archived (soft deleted).
+async function viewDeletedBrandList(req, res) {
+  try {
+    res.json(await brandModel.findDeleted());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// Bring an archived brand back into active use.
+async function selectRestoreProductBrand(req, res) {
+  try {
+    const brand = await brandModel.findById(req.params.id);
+    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+    if (!brand.isDeleted) return res.status(400).json({ error: 'Brand is not deleted.' });
+
+    const restored = await brandModel.restore(req.params.id);
+    res.json(restored);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
 router.get('/brands', viewBrandList);
+router.get('/brands/deleted', viewDeletedBrandList);
 router.post('/brands', selectAddNewProductBrand);
 router.put('/brands/:id', selectEditProductBrand);
+router.put('/brands/:id/restore', selectRestoreProductBrand);
 router.delete('/brands/:id', selectDeleteProductBrand);
 
 module.exports = router;

@@ -10,19 +10,20 @@ CREATE TABLE users (
 
 -- ===== driver =====
 CREATE TABLE driver (
-  "driverId"       SERIAL PRIMARY KEY,
-  "driverName"     VARCHAR(100) NOT NULL,
-  "driverPhoneNumb" VARCHAR(20) NOT NULL
+  "driverId"        SERIAL PRIMARY KEY,
+  "driverName"      VARCHAR(100) NOT NULL,
+  "driverPhoneNumb" VARCHAR(20) NOT NULL,
+  "isDeleted"       BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 -- ===== delivery =====
 CREATE TABLE delivery (
-  "deliveryId"    SERIAL PRIMARY KEY,
-  "deliveryDate"  DATE,
+  "deliveryId"     SERIAL PRIMARY KEY,
+  "deliveryDate"   DATE,
   "deliveryStatus" VARCHAR(50),
-  "deliveredDate" DATE,
-  "recipientName" VARCHAR(100),
-  "driverId"      INT REFERENCES driver("driverId")
+  "deliveredDate"  DATE,
+  "recipientName"  VARCHAR(100),
+  "driverId"       INT REFERENCES driver("driverId")
 );
 
 -- ===== orders =====
@@ -38,13 +39,15 @@ CREATE TABLE orders (
 -- ===== prodcat_lookup =====
 CREATE TABLE prodcat_lookup (
   "prodCatLookupId" SERIAL PRIMARY KEY,
-  "productCategory" VARCHAR(100) NOT NULL
+  "productCategory" VARCHAR(100) NOT NULL,
+  "isDeleted"        BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 -- ===== prodbrand_lookup =====
 CREATE TABLE prodbrand_lookup (
   "prodBrandLookupId" SERIAL PRIMARY KEY,
-  "productBrand"       VARCHAR(100) NOT NULL
+  "productBrand"       VARCHAR(100) NOT NULL,
+  "isDeleted"          BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 -- ===== products =====
@@ -57,7 +60,8 @@ CREATE TABLE products (
   "handInStock"       INT NOT NULL DEFAULT 0,
   "productStatus"     VARCHAR(20) NOT NULL DEFAULT 'Available',
   "prodCatLookupId"   INT REFERENCES prodcat_lookup("prodCatLookupId"),
-  "prodBrandLookupId" INT REFERENCES prodbrand_lookup("prodBrandLookupId")
+  "prodBrandLookupId" INT REFERENCES prodbrand_lookup("prodBrandLookupId"),
+  "isDeleted"         BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 -- ===== orderproduct (join table) =====
@@ -67,3 +71,13 @@ CREATE TABLE orderproduct (
   "orderProductQuantity" INT NOT NULL,
   PRIMARY KEY ("orderId", "productId")
 );
+
+-- ============================================================
+-- If you already have this database created and just need to
+-- add the soft-delete columns to existing tables, run this
+-- instead of recreating everything from scratch:
+-- ============================================================
+-- ALTER TABLE products         ADD COLUMN "isDeleted" BOOLEAN NOT NULL DEFAULT FALSE;
+-- ALTER TABLE prodcat_lookup   ADD COLUMN "isDeleted" BOOLEAN NOT NULL DEFAULT FALSE;
+-- ALTER TABLE prodbrand_lookup ADD COLUMN "isDeleted" BOOLEAN NOT NULL DEFAULT FALSE;
+-- ALTER TABLE driver           ADD COLUMN "isDeleted" BOOLEAN NOT NULL DEFAULT FALSE;

@@ -31,6 +31,12 @@ export default function ManageProductBrandPage() {
   const [deleteTarget, setDeleteTarget] = useState<Brand | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  // --- Archived (soft-deleted) brands ---
+  const [showDeleted, setShowDeleted] = useState(false);
+  const [deletedBrands, setDeletedBrands] = useState<Brand[]>([]);
+  const [deletedLoading, setDeletedLoading] = useState(false);
+  const [restoringId, setRestoringId] = useState<number | null>(null);
+
   async function loadBrands() {
     setLoading(true);
     setLoadError(null);
@@ -47,10 +53,43 @@ export default function ManageProductBrandPage() {
     }
   }
 
+  async function loadDeletedBrands() {
+    setDeletedLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/brands/deleted`);
+      const data = res.ok ? await res.json() : [];
+      setDeletedBrands(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Failed to load deleted brands:", err);
+    } finally {
+      setDeletedLoading(false);
+    }
+  }
+
   useEffect(() => {
     if (!user) return;
     loadBrands();
   }, [user]);
+
+  useEffect(() => {
+    if (!user || !showDeleted) return;
+    loadDeletedBrands();
+  }, [user, showDeleted]);
+
+  async function handleRestore(b: Brand) {
+    setRestoringId(b.prodBrandLookupId);
+    try {
+      const res = await fetch(`${API_BASE}/api/brands/${b.prodBrandLookupId}/restore`, { method: "PUT" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to restore brand");
+      setSuccessMessage(`Brand "${b.productBrand}" restored.`);
+      await Promise.all([loadBrands(), loadDeletedBrands()]);
+    } catch (err) {
+      console.error("Failed to restore brand:", err);
+    } finally {
+      setRestoringId(null);
+    }
+  }
 
   const filteredBrands = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -178,13 +217,56 @@ export default function ManageProductBrandPage() {
               Manage Product Brand
             </h1>
           </div>
-          <button
-            onClick={openAdd}
-            className="rounded-lg bg-sky-600 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-sky-700"
-          >
-            + Add New Brand
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowDeleted((v) => !v)}
+              className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-600 transition hover:border-amber-300 hover:text-amber-700"
+            >
+              {showDeleted ? "Hide Archived" : "View Archived"}
+            </button>
+            <button
+              onClick={openAdd}
+              className="rounded-lg bg-sky-600 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-sky-700"
+            >
+              + Add New Brand
+            </button>
+          </div>
         </div>
+
+        {/* Archived (soft-deleted) brands, restorable by warehouse staff */}
+        {showDeleted && (
+          <div className="mb-6 overflow-hidden rounded-2xl border border-amber-200/60 bg-amber-50/40">
+            <div className="border-b border-amber-200/60 px-5 py-3">
+              <span className="font-mono text-[11px] font-bold uppercase tracking-wide text-amber-700">
+                Archived Brands
+              </span>
+            </div>
+            {deletedLoading ? (
+              <div className="px-5 py-6 text-center text-[13px] text-slate-400">Loading…</div>
+            ) : deletedBrands.length === 0 ? (
+              <div className="px-5 py-6 text-center text-[13px] text-slate-500">No archived brands.</div>
+            ) : (
+              <table className="w-full text-left text-sm">
+                <tbody className="divide-y divide-amber-100">
+                  {deletedBrands.map((b) => (
+                    <tr key={b.prodBrandLookupId}>
+                      <td className="px-5 py-3 font-bold text-slate-700">{b.productBrand}</td>
+                      <td className="px-5 py-3 text-right">
+                        <button
+                          onClick={() => handleRestore(b)}
+                          disabled={restoringId === b.prodBrandLookupId}
+                          className="rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-50"
+                        >
+                          {restoringId === b.prodBrandLookupId ? "Restoring…" : "Restore"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
 
         {/* Search bar */}
         <div className="mb-6 relative">

@@ -56,8 +56,21 @@ async function selectEditProductCategory(req, res) {
   }
 }
 
+// If any product (including already-deleted ones) still references this
+// category, soft delete it instead of hard deleting (avoids an FK error and
+// keeps history intact). Otherwise it's a brand new/unused category, hard delete it.
 async function selectDeleteProductCategory(req, res) {
   try {
+    const category = await catModel.findById(req.params.id);
+    if (!category) return res.status(404).json({ error: 'Category not found' });
+
+    const referenced = await catModel.isReferenced(req.params.id);
+
+    if (referenced) {
+      await catModel.softDelete(req.params.id);
+      return res.status(200).json({ message: 'Category is still referenced by product(s), so it was archived (soft deleted) instead of removed.' });
+    }
+
     await catModel.remove(req.params.id);
     res.status(204).send();
   } catch (err) {
@@ -65,9 +78,34 @@ async function selectDeleteProductCategory(req, res) {
   }
 }
 
+// So warehouse staff can see categories that were archived (soft deleted).
+async function viewDeletedCategoryList(req, res) {
+  try {
+    res.json(await catModel.findDeleted());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// Bring an archived category back into active use.
+async function selectRestoreProductCategory(req, res) {
+  try {
+    const category = await catModel.findById(req.params.id);
+    if (!category) return res.status(404).json({ error: 'Category not found' });
+    if (!category.isDeleted) return res.status(400).json({ error: 'Category is not deleted.' });
+
+    const restored = await catModel.restore(req.params.id);
+    res.json(restored);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
 router.get('/categories', viewCategoryList);
+router.get('/categories/deleted', viewDeletedCategoryList);
 router.post('/categories', selectAddNewProductCategory);
 router.put('/categories/:id', selectEditProductCategory);
+router.put('/categories/:id/restore', selectRestoreProductCategory);
 router.delete('/categories/:id', selectDeleteProductCategory);
 
 module.exports = router;

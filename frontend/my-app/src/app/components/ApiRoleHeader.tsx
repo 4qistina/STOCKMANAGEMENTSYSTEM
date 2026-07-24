@@ -21,7 +21,12 @@ export default function ApiRoleHeader() {
     const originalFetch = window.fetch.bind(window);
 
     const patched: typeof window.fetch = (input, init) => {
-      const url = typeof input === "string" ? input : (input as Request).url;
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof Request
+          ? input.url
+          : input.toString();
 
       if (API_BASE && url.startsWith(API_BASE)) {
         let role: string | undefined;
@@ -33,7 +38,7 @@ export default function ApiRoleHeader() {
         }
 
         if (role) {
-          const headers = new Headers(init?.headers ?? (input as Request).headers);
+          const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
           headers.set("x-role", role);
           return originalFetch(input, { ...init, headers });
         }

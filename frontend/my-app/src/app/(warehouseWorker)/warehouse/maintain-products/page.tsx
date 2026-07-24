@@ -193,7 +193,7 @@ export default function MaintainProductPage() {
     setLoading(true);
     try {
       const [prodRes, catRes, brandRes] = await Promise.all([
-        fetch(`${API_BASE}/api/maintain-product/menu`),
+        fetch(`${API_BASE}/api/products/menu`),
         fetch(`${API_BASE}/api/categories`),
         fetch(`${API_BASE}/api/brands`),
       ]);

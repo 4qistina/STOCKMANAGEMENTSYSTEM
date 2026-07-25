@@ -507,7 +507,7 @@ export default function WarehouseViewOrderDetailsPage() {
             </h3>
             <p className="mt-2 text-sm text-slate-500">
               Once this order is set to <span className="font-semibold text-emerald-700">Approved</span>, it cannot
-              be reverted back to Pending, and it will move to Update Delivery Information for driver assignment.
+              be reverted back to Pending and it will move to Update Delivery Information. Product Quantity will be automatically deduct. 
             </p>
 
             <div className="mt-5 flex gap-3">

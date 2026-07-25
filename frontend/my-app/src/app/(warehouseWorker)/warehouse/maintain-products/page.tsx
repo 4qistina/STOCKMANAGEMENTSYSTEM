@@ -30,6 +30,10 @@ interface Lookup {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 
+// Anything at or above this still-in-stock but below this threshold gets
+// flagged as needing a restock. 0 is handled separately as "Not Available".
+const LOW_STOCK_THRESHOLD = 5;
+
 const EMPTY_FORM = {
   productCode: "",
   productModel: "",
@@ -44,6 +48,10 @@ type Mode = "add" | "edit" | null;
 
 // Availability filter values: "" = all, "Available", "Not Available"
 type AvailabilityFilter = "" | "Available" | "Not Available";
+
+function isLowStock(p: Product) {
+  return p.productQuantity <= LOW_STOCK_THRESHOLD;
+}
 
 function ProductImage({ src, alt, className }: { src?: string | null; alt: string; className?: string }) {
   if (src) {
@@ -70,6 +78,8 @@ function ProductImage({ src, alt, className }: { src?: string | null; alt: strin
 }
 
 function ProductTile({ product, onClick }: { product: Product; onClick: () => void }) {
+  const lowStock = isLowStock(product);
+
   return (
     <button
       onClick={onClick}
@@ -84,6 +94,11 @@ function ProductTile({ product, onClick }: { product: Product; onClick: () => vo
         {product.productStatus !== "Available" && (
           <span className="absolute right-2 top-2 rounded-md bg-slate-600 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-white">
             Not Available
+          </span>
+        )}
+        {lowStock && (
+          <span className="absolute left-2 top-2 rounded-md bg-amber-500 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-white">
+            Low Stock ({product.productQuantity})
           </span>
         )}
       </div>
@@ -117,7 +132,9 @@ function ProductTile({ product, onClick }: { product: Product; onClick: () => vo
           >
             {product.productStatus}
           </span>
-          <span className="font-mono text-[10px] text-slate-400">{product.productQuantity} in warehouse</span>
+          <span className={`font-mono text-[10px] ${lowStock ? "font-bold text-amber-600" : "text-slate-400"}`}>
+            {product.productQuantity} in warehouse stock
+          </span>
         </div>
       </div>
     </button>
@@ -138,6 +155,10 @@ export default function MaintainProductPage() {
   const [brandFilter, setBrandFilter] = useState("");
   const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>("");
   const [page, setPage] = useState(1);
+
+  // --- Low stock alert banner ---
+  const [lowStockDismissed, setLowStockDismissed] = useState(false);
+  const [lowStockExpanded, setLowStockExpanded] = useState(false);
 
   // --- Details popup ---
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
@@ -251,11 +272,23 @@ export default function MaintainProductPage() {
   const availableProducts = pagedProducts.filter((p) => p.productStatus === "Available");
   const unavailableProducts = pagedProducts.filter((p) => p.productStatus !== "Available");
 
+  // Low-stock products across the whole (unfiltered) catalog, so the alert
+  // banner always reflects reality even if the person is mid-search/filter.
+  const lowStockProducts = useMemo(
+    () => products.filter(isLowStock).sort((a, b) => a.productQuantity - b.productQuantity),
+    [products]
+  );
+
   const hasActiveFilters = !!(searchQuery || categoryFilter || brandFilter || availabilityFilter);
 
   useEffect(() => {
     setPage(1);
   }, [searchQuery, categoryFilter, brandFilter, availabilityFilter]);
+
+  // Re-show the banner if a new item drops into low stock after being dismissed.
+  useEffect(() => {
+    setLowStockDismissed(false);
+  }, [lowStockProducts.length]);
 
   function clearFilters() {
     setSearchQuery("");
@@ -431,6 +464,77 @@ export default function MaintainProductPage() {
           </button>
         </div>
 
+        {/* Low stock alert banner */}
+        {!loading && lowStockProducts.length > 0 && !lowStockDismissed && (
+          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3.5 sm:px-5">
+            <div className="flex items-start gap-3">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth="2"
+                stroke="currentColor"
+                className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-500"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-8.25 3.75h.008v.008h-.008v-.008Z"
+                />
+              </svg>
+              <div className="min-w-0 flex-1">
+                <p className="text-[13.5px] font-bold text-amber-800">
+                  {lowStockProducts.length} product{lowStockProducts.length === 1 ? "" : "s"} running low on stock
+                </p>
+                <p className="mt-0.5 text-[12.5px] text-amber-700">
+                  {LOW_STOCK_THRESHOLD} units or fewer in the warehouse. Restock soon to avoid these going
+                  &ldquo;Not Available&rdquo;.
+                </p>
+
+                <button
+                  onClick={() => setLowStockExpanded((v) => !v)}
+                  className="mt-2 text-[12px] font-bold uppercase tracking-wide text-amber-800 underline decoration-amber-300 underline-offset-2 hover:text-amber-900"
+                >
+                  {lowStockExpanded ? "Hide details" : "View products"}
+                </button>
+
+                {lowStockExpanded && (
+                  <ul className="mt-3 flex flex-col gap-1.5">
+                    {lowStockProducts.map((p) => (
+                      <li
+                        key={p.productID}
+                        className="flex items-center justify-between gap-3 rounded-lg border border-amber-200/70 bg-white px-3 py-2 text-[12.5px]"
+                      >
+                        <button
+                          onClick={() => setViewingProduct(p)}
+                          className="min-w-0 flex-1 truncate text-left font-semibold text-slate-700 hover:text-sky-700"
+                        >
+                          {p.productModel}
+                          <span className="ml-1.5 font-mono text-[11px] font-normal text-slate-400">
+                            {p.productCode}
+                          </span>
+                        </button>
+                        <span className="flex-shrink-0 font-mono font-bold text-amber-600">
+                          {p.productQuantity} left
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <button
+                onClick={() => setLowStockDismissed(true)}
+                className="flex-shrink-0 text-amber-500 transition hover:text-amber-700"
+                aria-label="Dismiss low stock alert"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Search & filter bar */}
         <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center">
           <div className="relative flex-1">
@@ -595,8 +699,15 @@ export default function MaintainProductPage() {
                 </div>
                 <div className="mt-1 flex items-center gap-2 text-[13px]">
                   <span className="text-slate-400">Warehouse Quantity:</span>
-                  <span className="font-semibold text-slate-700">{viewingProduct.productQuantity}</span>
+                  <span className={`font-semibold ${isLowStock(viewingProduct) ? "text-amber-600" : "text-slate-700"}`}>
+                    {viewingProduct.productQuantity}
+                  </span>
                 </div>
+                {isLowStock(viewingProduct) && (
+                  <p className="mt-2 inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-1 text-[11.5px] font-semibold text-amber-700">
+                    Low stock — consider restocking soon
+                  </p>
+                )}
               </div>
             </div>
 
@@ -773,6 +884,13 @@ export default function MaintainProductPage() {
                   How many units are on hand at the warehouse. This determines whether the product shows as
                   Available to Supervisors — it isn't set manually.
                 </p>
+                {form.productQuantity.trim() !== "" &&
+                  !Number.isNaN(Number(form.productQuantity)) &&
+                  Number(form.productQuantity) <= LOW_STOCK_THRESHOLD && (
+                    <p className="mt-1 text-[11px] font-semibold text-amber-600">
+                      This will be flagged as low stock ({LOW_STOCK_THRESHOLD} units or fewer).
+                    </p>
+                  )}
               </div>
             </div>
 

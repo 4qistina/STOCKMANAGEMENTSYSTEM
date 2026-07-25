@@ -38,6 +38,9 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 type Tab = "current" | "history";
 
+// Status filter values: "" = all, "Pending", "Available" (displayed as "Approved")
+type StatusFilter = "" | "Pending" | "Available";
+
 function orderTotal(items: OrderItem[]) {
   return items.reduce((sum, i) => sum + Number(i.productPrice ?? 0) * i.quantity, 0);
 }
@@ -189,6 +192,7 @@ export default function OrdersPage() {
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState("");
   const [dateFilter, setDateFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("");
   const [page, setPage] = useState(1);
 
   useEffect(() => {
@@ -246,21 +250,24 @@ export default function OrdersPage() {
       const orderDateIso = toDateOnly(o.orderDate);
       const matchesDate = !dateFilter || orderDateIso === dateFilter;
 
-      return matchesQuery && matchesDate;
-    });
-  }, [orders, searchQuery, dateFilter]);
+      const matchesStatus = !statusFilter || normalizeStatus(o.orderStatus) === statusFilter;
 
-  const hasActiveFilters = !!(searchQuery || dateFilter);
+      return matchesQuery && matchesDate && matchesStatus;
+    });
+  }, [orders, searchQuery, dateFilter, statusFilter]);
+
+  const hasActiveFilters = !!(searchQuery || dateFilter || statusFilter);
 
   useEffect(() => {
     setPage(1);
-  }, [searchQuery, dateFilter, tab]);
+  }, [searchQuery, dateFilter, statusFilter, tab]);
 
   const pagedOrders = useMemo(() => (filteredOrders ? paginate(filteredOrders, page) : filteredOrders), [filteredOrders, page]);
 
   function clearFilters() {
     setSearchQuery("");
     setDateFilter("");
+    setStatusFilter("");
   }
 
   if (!user) {
@@ -330,20 +337,31 @@ export default function OrdersPage() {
               className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-[13px] text-slate-700 focus:border-sky-400 focus:outline-none"
             />
           </div>
-          <input
-            type="date"
-            value={dateFilter}
-            onChange={(e) => setDateFilter(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-[13px] text-slate-600 focus:border-sky-400 focus:outline-none"
-          />
-          {hasActiveFilters && (
-            <button
-              onClick={clearFilters}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-[12px] font-semibold text-rose-600 transition hover:border-rose-300"
+          <div className="flex flex-wrap gap-2">
+            <input
+              type="date"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-[13px] text-slate-600 focus:border-sky-400 focus:outline-none"
+            />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-[13px] text-slate-600 focus:border-sky-400 focus:outline-none"
             >
-              Clear
-            </button>
-          )}
+              <option value="">Status</option>
+              <option value="Pending">Pending</option>
+              <option value="Available">Approved</option>
+            </select>
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-[12px] font-semibold text-rose-600 transition hover:border-rose-300"
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>
 
         {loading ? (

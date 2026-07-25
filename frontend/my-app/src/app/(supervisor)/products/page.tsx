@@ -44,7 +44,6 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
   const targetProductId = product.productID ?? 0;
 
   const currentStock = product.productQuantity ?? 0;
-  const isLowStock = currentStock <= 5;
   const isOutOfStock = currentStock === 0;
   const isUnavailable = product.productStatus === "Not Available";
 
@@ -77,15 +76,11 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
           </svg>
         )}
 
-        {isOutOfStock ? (
+        {isOutOfStock && (
           <span className="absolute left-2.5 top-2.5 rounded-md bg-rose-600 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-white">
             Out of Stock
           </span>
-        ) : isLowStock ? (
-          <span className="absolute left-2.5 top-2.5 rounded-md bg-amber-500 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-white">
-            Low Warehouse Stock ({currentStock})
-          </span>
-        ) : null}
+        )}
 
         {isUnavailable && (
           <span className="absolute right-2.5 top-2.5 rounded-md bg-slate-600 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-white">
@@ -136,6 +131,32 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
         </span>
       </div>
     </Link>
+  );
+}
+
+function ProductSection({
+  title,
+  products,
+}: {
+  title: string;
+  products: Product[];
+}) {
+  if (products.length === 0) return null;
+
+  return (
+    <>
+      <div className="mt-10 mb-4 flex items-center gap-3 first:mt-0">
+        <span className="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
+          {title}
+        </span>
+        <div className="h-px flex-1 bg-slate-200" />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        {products.map((p, index) => (
+          <ProductCard key={p.productID ?? `${title}-${index}`} product={p} index={index} />
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -285,14 +306,34 @@ function ProductListingContent() {
     brands.find((b) => b.prodBrandLookupId.toString() === activeBrandId)?.productBrand ??
     activeBrandId;
 
-  // Available products render first; "Not Available" products are grouped below.
-  const orderedProducts = [
-    ...searchedProducts.filter((p) => p.productStatus !== "Not Available"),
-    ...searchedProducts.filter((p) => p.productStatus === "Not Available"),
-  ];
+  // Three-tier grouping, in display priority order:
+  //   1. In Stock       — available status AND productQuantity > 0
+  //   2. Out of Stock    — available status BUT productQuantity === 0
+  //   3. Not Available   — productStatus === "Not Available" (regardless of quantity)
+  const inStockProducts = searchedProducts.filter(
+    (p) => p.productStatus !== "Not Available" && (p.productQuantity ?? 0) > 0
+  );
+  const outOfStockProducts = searchedProducts.filter(
+    (p) => p.productStatus !== "Not Available" && (p.productQuantity ?? 0) === 0
+  );
+  const notAvailableProducts = searchedProducts.filter(
+    (p) => p.productStatus === "Not Available"
+  );
+
+  const orderedProducts = [...inStockProducts, ...outOfStockProducts, ...notAvailableProducts];
   const pagedProducts = paginate(orderedProducts, page);
-  const availableProducts = pagedProducts.filter((p) => p.productStatus !== "Not Available");
-  const unavailableProducts = pagedProducts.filter((p) => p.productStatus === "Not Available");
+
+  // Re-split the paginated slice into the same three groups so section
+  // headers only render for groups that actually have items on this page.
+  const pagedInStock = pagedProducts.filter(
+    (p) => p.productStatus !== "Not Available" && (p.productQuantity ?? 0) > 0
+  );
+  const pagedOutOfStock = pagedProducts.filter(
+    (p) => p.productStatus !== "Not Available" && (p.productQuantity ?? 0) === 0
+  );
+  const pagedNotAvailable = pagedProducts.filter(
+    (p) => p.productStatus === "Not Available"
+  );
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_20%_0%,#f4f8fb_0%,#e9f1f7_55%,#dfebf3_100%)] font-sans text-slate-700">
@@ -456,29 +497,9 @@ function ProductListingContent() {
           </div>
         ) : (
           <>
-            {/* Available products */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {availableProducts.map((p, index) => (
-                <ProductCard key={p.productID ?? `available-${index}`} product={p} index={index} />
-              ))}
-            </div>
-
-            {/* Not Available products, grouped below with a divider */}
-            {unavailableProducts.length > 0 && (
-              <>
-                <div className="mt-10 mb-4 flex items-center gap-3">
-                  <span className="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
-                    Not Available
-                  </span>
-                  <div className="h-px flex-1 bg-slate-200" />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                  {unavailableProducts.map((p, index) => (
-                    <ProductCard key={p.productID ?? `unavailable-${index}`} product={p} index={index} />
-                  ))}
-                </div>
-              </>
-            )}
+            <ProductSection title="In Stock" products={pagedInStock} />
+            <ProductSection title="Out of Stock" products={pagedOutOfStock} />
+            <ProductSection title="Not Available" products={pagedNotAvailable} />
 
             <Pagination page={page} totalItems={orderedProducts.length} onChange={setPage} />
           </>

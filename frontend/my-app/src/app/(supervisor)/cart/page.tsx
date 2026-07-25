@@ -1,12 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useCart } from "@/src/app/contexts/CartContext";
 import { formatCurrency } from "@/src/lib/format";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
+
+// Shelf stock at or below this is flagged as a restock candidate on the cart page.
+const LOW_STOCK_THRESHOLD = 5;
+
+interface SuggestibleProduct {
+  productID: number;
+  productCode?: string;
+  productModel?: string;
+  productPrice?: number;
+  handInStock?: number;
+  productQuantity?: number;
+  productImage?: string;
+  productStatus?: string;
+  categoryName?: string;
+  brandName?: string;
+}
 
 function Stepper({
   value,
@@ -47,8 +63,102 @@ function Stepper({
   );
 }
 
+function RestockSuggestions({
+  products,
+  loading,
+  addedIds,
+  onAdd,
+}: {
+  products: SuggestibleProduct[];
+  loading: boolean;
+  addedIds: Set<number>;
+  onAdd: (product: SuggestibleProduct) => void;
+}) {
+  if (loading || products.length === 0) return null;
+
+  return (
+    <div className="mt-6 rounded-2xl border border-amber-200/70 bg-amber-50/40 p-4 sm:p-5">
+      <div className="flex items-start gap-2.5">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth="2"
+          stroke="currentColor"
+          className="mt-0.5 h-4.5 w-4.5 flex-shrink-0 text-amber-500"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-8.25 3.75h.008v.008h-.008v-.008Z"
+          />
+        </svg>
+        <div>
+          <p className="text-[13px] font-bold text-amber-800">Running low on the shelf</p>
+          <p className="text-[12px] text-amber-700">
+            These items are below {LOW_STOCK_THRESHOLD} units in stock. Do you wish to restock any of them?
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-3 flex gap-3 overflow-x-auto pb-1">
+        {products.map((p) => {
+          const added = addedIds.has(p.productID);
+          return (
+            <div
+              key={p.productID}
+              className="flex w-44 flex-shrink-0 flex-col rounded-xl border border-slate-200 bg-white p-3"
+            >
+              <Link
+                href={`/products/${p.productID}`}
+                className="mb-2 flex h-20 w-full items-center justify-center overflow-hidden rounded-lg border border-slate-100 bg-slate-50"
+              >
+                {p.productImage ? (
+                  <img src={p.productImage} alt={p.productModel ?? ""} className="h-full w-full object-cover" />
+                ) : (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="1"
+                    stroke="currentColor"
+                    className="h-7 w-7 text-slate-300"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                  </svg>
+                )}
+              </Link>
+
+              <p className="line-clamp-2 min-h-[32px] text-[12px] font-bold text-slate-800">
+                {p.productModel ?? "Unnamed Product"}
+              </p>
+
+              <span className="mt-1 inline-flex w-fit items-center rounded-md bg-amber-100 px-1.5 py-0.5 font-mono text-[10px] font-bold text-amber-700">
+                {p.handInStock ?? 0} on shelf
+              </span>
+
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <p className="text-[12.5px] font-bold text-slate-900">{formatCurrency(p.productPrice)}</p>
+                <button
+                  onClick={() => onAdd(p)}
+                  disabled={added}
+                  className={`rounded-md px-2.5 py-1.5 text-[10.5px] font-bold uppercase tracking-wide text-white transition ${
+                    added ? "bg-emerald-600" : "bg-sky-600 hover:bg-sky-700"
+                  }`}
+                >
+                  {added ? "Added ✓" : "+ Add"}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function CartPage() {
-  const { items, updateQuantity, removeItem } = useCart();
+  const { items, addItem, updateQuantity, removeItem } = useCart();
   const router = useRouter();
 
   const [confirming, setConfirming] = useState(false);
@@ -56,12 +166,80 @@ export default function CartPage() {
   const [error, setError] = useState<string | null>(null);
   const [orderSummary, setOrderSummary] = useState<{ orderNumber: string } | null>(null);
 
+  // --- Restock suggestions (products low on shelf stock, not already in cart) ---
+  const [allProducts, setAllProducts] = useState<SuggestibleProduct[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(true);
+  const [addedSuggestionIds, setAddedSuggestionIds] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSuggestions() {
+      setLoadingSuggestions(true);
+      try {
+        const res = await fetch(`${API_BASE}/api/products/menu`);
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelled) setAllProducts(Array.isArray(data) ? data : []);
+        }
+      } catch (err) {
+        console.error("Failed to load restock suggestions:", err);
+      } finally {
+        if (!cancelled) setLoadingSuggestions(false);
+      }
+    }
+
+    loadSuggestions();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const suggestions = useMemo(() => {
+    const cartIds = new Set(items.map((i) => i.productID));
+    return allProducts
+      .filter((p) => !cartIds.has(p.productID))
+      .filter((p) => p.productStatus !== "Not Available")
+      .filter((p) => (p.productQuantity ?? 0) > 0)
+      .filter((p) => (p.handInStock ?? 0) <= LOW_STOCK_THRESHOLD)
+      .sort((a, b) => (a.handInStock ?? 0) - (b.handInStock ?? 0))
+      .slice(0, 8);
+  }, [allProducts, items]);
+
+  function handleAddSuggestion(product: SuggestibleProduct) {
+    const result = addItem(
+      {
+        productID: product.productID,
+        productCode: product.productCode,
+        productModel: product.productModel,
+        productPrice: Number(product.productPrice ?? 0),
+        productImage: product.productImage,
+        handInStock: product.handInStock ?? 0,
+        productQuantity: product.productQuantity ?? 0,
+        productStatus: product.productStatus,
+      },
+      1
+    );
+    if (result.ok) {
+      setAddedSuggestionIds((prev) => new Set(prev).add(product.productID));
+    }
+  }
+
   // Which cart items the supervisor wants to include in this order.
   // Everything starts selected so behavior matches the old "whole cart" flow
   // unless they deliberately uncheck something.
   const [selectedIds, setSelectedIds] = useState<Set<number>>(
     () => new Set(items.map((i) => i.productID))
   );
+
+  // Newly-added items (e.g. via a restock suggestion) should default to selected too.
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      items.forEach((i) => next.add(i.productID));
+      return next;
+    });
+  }, [items]);
 
   function toggleItem(productID: number) {
     setSelectedIds((prev) => {
@@ -216,6 +394,13 @@ export default function CartPage() {
               Browse Products
             </Link>
           </div>
+
+          <RestockSuggestions
+            products={suggestions}
+            loading={loadingSuggestions}
+            addedIds={addedSuggestionIds}
+            onAdd={handleAddSuggestion}
+          />
         </div>
       </div>
     );
@@ -364,6 +549,13 @@ export default function CartPage() {
             </div>
           ))}
         </div>
+
+        <RestockSuggestions
+          products={suggestions}
+          loading={loadingSuggestions}
+          addedIds={addedSuggestionIds}
+          onAdd={handleAddSuggestion}
+        />
 
         {/* Summary */}
         <div className="mt-6 rounded-2xl border border-slate-200/60 bg-white p-5 shadow-[0_20px_40px_-30px_rgba(51,65,60,0.15)] sm:p-6">

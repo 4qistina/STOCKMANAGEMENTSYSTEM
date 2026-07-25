@@ -8,6 +8,9 @@ interface Driver {
   driverId: number;
   driverName: string;
   driverPhoneNumb: string;
+  isOnShift: boolean;
+  // Computed server-side: 'Available' | 'Delivering' | 'Off Shift'
+  driverStatus: "Available" | "Delivering" | "Off Shift";
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
@@ -29,6 +32,24 @@ export default function ManageDriverInformationPage() {
   const [submitting, setSubmitting] = useState(false);
   const [confirmMessage, setConfirmMessage] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Driver | null>(null);
+  const [shiftBusyId, setShiftBusyId] = useState<number | null>(null);
+
+  async function toggleShift(d: Driver) {
+    setShiftBusyId(d.driverId);
+    try {
+      const res = await fetch(`${API_BASE}/api/drivers/${d.driverId}/shift`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isOnShift: !d.isOnShift }),
+      });
+      if (!res.ok) throw new Error("Failed to update shift status");
+      await loadDrivers();
+    } catch (err) {
+      console.error("Failed to toggle shift:", err);
+    } finally {
+      setShiftBusyId(null);
+    }
+  }
 
   async function loadDrivers() {
     setLoading(true);
@@ -225,6 +246,7 @@ export default function ManageDriverInformationPage() {
                 <tr className="border-b border-slate-100 bg-slate-50/60 font-mono text-[10px] uppercase tracking-wider text-slate-400">
                   <th className="px-5 py-3">Name</th>
                   <th className="px-5 py-3">Phone Number</th>
+                  <th className="px-5 py-3">Status</th>
                   <th className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -233,7 +255,32 @@ export default function ManageDriverInformationPage() {
                   <tr key={d.driverId} className="transition hover:bg-sky-50/40">
                     <td className="px-5 py-3 font-bold text-slate-800">{d.driverName}</td>
                     <td className="px-5 py-3 text-slate-600">{d.driverPhoneNumb}</td>
+                    <td className="px-5 py-3">
+                      <span
+                        className={`rounded-full border px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider ${
+                          d.driverStatus === "Available"
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                            : d.driverStatus === "Delivering"
+                            ? "border-amber-200 bg-amber-50 text-amber-700"
+                            : "border-slate-200 bg-slate-100 text-slate-500"
+                        }`}
+                      >
+                        {d.driverStatus}
+                      </span>
+                    </td>
                     <td className="px-5 py-3 text-right space-x-2 whitespace-nowrap">
+                      <button
+                        onClick={() => toggleShift(d)}
+                        disabled={shiftBusyId === d.driverId}
+                        title={
+                          d.driverStatus === "Delivering" && d.isOnShift
+                            ? "Driver is mid-delivery — ending their shift now won't interrupt the current run."
+                            : undefined
+                        }
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-600 transition hover:border-sky-300 hover:text-sky-700 disabled:opacity-50"
+                      >
+                        {shiftBusyId === d.driverId ? "…" : d.isOnShift ? "End Shift" : "Start Shift"}
+                      </button>
                       <button
                         onClick={() => openEdit(d)}
                         className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-600 transition hover:border-sky-300 hover:text-sky-700"

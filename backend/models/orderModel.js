@@ -18,9 +18,12 @@ async function findByUser(userId, client = pool) {
   return result.rows;
 }
 
-async function findByDeliveryId(deliveryId, client = pool) {
+// A single delivery can carry multiple orders (a Warehouse Staff member can
+// dispatch several approved orders to the same driver/run in one go), so
+// this returns every order riding on it, not just one.
+async function findAllByDeliveryId(deliveryId, client = pool) {
   const result = await client.query('SELECT * FROM orders WHERE "deliveryId" = $1', [deliveryId]);
-  return result.rows[0];
+  return result.rows;
 }
 
 // Full order detail for the "View Order Details" use case: order info,
@@ -129,7 +132,7 @@ module.exports = {
   findAll,
   findById,
   findByUser,
-  findByDeliveryId,
+  findAllByDeliveryId,
   findDetailedByUser,
   findAllDetailed,
   insert,

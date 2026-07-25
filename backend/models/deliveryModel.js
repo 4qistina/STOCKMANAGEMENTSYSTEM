@@ -5,11 +5,11 @@ async function findById(deliveryId, client = pool) {
   return result.rows[0];
 }
 
-async function insert({ deliveryDate, recipientName, driverId }, client = pool) {
+async function insert({ deliveryDate, deliveryStatus, recipientName, driverId }, client = pool) {
   const result = await client.query(
     `INSERT INTO delivery ("deliveryDate", "deliveryStatus", "recipientName", "driverId")
-     VALUES ($1, 'Pending', $2, $3) RETURNING *`,
-    [deliveryDate, recipientName, driverId]
+     VALUES ($1, $2, $3, $4) RETURNING *`,
+    [deliveryDate, deliveryStatus || 'Pending', recipientName || null, driverId]
   );
   return result.rows[0];
 }

@@ -9,14 +9,27 @@ CREATE TABLE users (
 );
 
 -- ===== driver =====
+-- "isOnShift" = whether this driver is currently clocked in / on duty at
+--   all, toggled by Warehouse Staff (Manage Driver Information). A driver
+--   who is off shift can't be assigned a delivery, full stop — independent
+--   of whether they happen to be mid-delivery at the moment their shift ends.
 CREATE TABLE driver (
   "driverId"        SERIAL PRIMARY KEY,
   "driverName"      VARCHAR(100) NOT NULL,
   "driverPhoneNumb" VARCHAR(20) NOT NULL,
+  "isOnShift"       BOOLEAN NOT NULL DEFAULT TRUE,
   "isDeleted"       BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 -- ===== delivery =====
+-- "deliveryStatus" lifecycle: 'Pending' (created, not dispatched yet — not
+--   really used in practice since a delivery row is only created at the
+--   moment of dispatch) -> 'Out for Delivery' (driver assigned, en route —
+--   this is what makes a driver show up as "Delivering"/busy) ->
+--   'Delivered' (completed; retail handInStock is credited at this point).
+-- One delivery can carry MULTIPLE orders (see orders."deliveryId" below) —
+-- a Warehouse Staff member can dispatch several approved orders to the same
+-- driver/run in one go.
 CREATE TABLE delivery (
   "deliveryId"     SERIAL PRIMARY KEY,
   "deliveryDate"   DATE,
@@ -101,3 +114,8 @@ CREATE TABLE orderproduct (
 -- -- Available/Not Available based on their current handInStock value:
 -- -- UPDATE products SET "productQuantity" = "handInStock";
 -- -- UPDATE products SET "productStatus" = CASE WHEN "productQuantity" > 0 THEN 'Available' ELSE 'Not Available' END;
+
+-- ============================================================
+-- If you already have "driver" created and just need the on/off-shift flag:
+-- ============================================================
+-- ALTER TABLE driver ADD COLUMN "isOnShift" BOOLEAN NOT NULL DEFAULT TRUE;

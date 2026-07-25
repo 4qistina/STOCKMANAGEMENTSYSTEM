@@ -19,6 +19,24 @@ async function selectEditDriverInfo(req, res) {
   }
 }
 
+// PUT /api/drivers/:id/shift  { isOnShift: boolean }
+async function selectSetDriverShift(req, res) {
+  try {
+    const driver = await driverModel.findById(req.params.id);
+    if (!driver) return res.status(404).json({ error: 'Driver not found' });
+
+    const { isOnShift } = req.body;
+    if (typeof isOnShift !== 'boolean') {
+      return res.status(400).json({ error: 'isOnShift must be true or false' });
+    }
+
+    const updated = await driverModel.setShift(req.params.id, isOnShift);
+    res.json(await driverModel.findById(updated.driverId));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
 async function selectAddNewDriverInfo(req, res) {
   try {
     const driver = await driverModel.insert(req.body);
@@ -76,6 +94,7 @@ router.get('/drivers', viewDriverInfoList);
 router.get('/drivers/deleted', viewDeletedDriverList);
 router.post('/drivers', selectAddNewDriverInfo);
 router.put('/drivers/:id', selectEditDriverInfo);
+router.put('/drivers/:id/shift', selectSetDriverShift);
 router.put('/drivers/:id/restore', selectRestoreDriver);
 router.delete('/drivers/:id', selectDeleteEditInfo);
 

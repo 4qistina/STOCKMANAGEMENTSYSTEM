@@ -62,6 +62,11 @@ export default function UpdateDeliveryInformationPage() {
 
   // ---- "Ready to Dispatch" tab: multi-select orders + pick a driver ----
   const [selectedOrderIds, setSelectedOrderIds] = useState<number[]>([]);
+  // Controls whether the Assign Driver modal is open. Kept separate from
+  // selectedOrderIds so ticking a checkbox only selects an order — it does
+  // NOT pop the modal open — letting staff select several orders first and
+  // only open the modal when they click "Assign Driver".
+  const [showDispatchModal, setShowDispatchModal] = useState(false);
   const [dispatchForm, setDispatchForm] = useState({ driverId: "", deliveryDate: todayStr() });
   const [dispatchError, setDispatchError] = useState<string | null>(null);
   const [dispatchConfirming, setDispatchConfirming] = useState(false);
@@ -144,6 +149,7 @@ export default function UpdateDeliveryInformationPage() {
     if (selectedOrderIds.length === 0) return;
     setDispatchForm({ driverId: "", deliveryDate: todayStr() });
     setDispatchError(null);
+    setShowDispatchModal(true);
   }
 
   function handleDispatchSubmit() {
@@ -184,6 +190,7 @@ export default function UpdateDeliveryInformationPage() {
 
       setSuccessMessage(data.confirmation || "Driver assigned successfully.");
       setSelectedOrderIds([]);
+      setShowDispatchModal(false);
       setDispatchForm({ driverId: "", deliveryDate: todayStr() });
       await loadAll();
     } catch (err) {
@@ -564,7 +571,7 @@ export default function UpdateDeliveryInformationPage() {
       )}
 
       {/* Dispatch modal, opened via "Assign Driver" button */}
-      {selectedOrderIds.length > 0 && (
+      {showDispatchModal && (
         <DispatchModal
           selectedOrders={selectedOrders}
           drivers={drivers}
@@ -577,7 +584,7 @@ export default function UpdateDeliveryInformationPage() {
           onConfirm={handleDispatchConfirm}
           onCancelConfirm={() => setDispatchConfirming(false)}
           onClose={() => {
-            setSelectedOrderIds([]);
+            setShowDispatchModal(false);
             setDispatchError(null);
           }}
         />

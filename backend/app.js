@@ -39,7 +39,11 @@ app.use('/api', requireRole('warehouse_staff'), maintainProductController);
 app.use('/api', requireRole('warehouse_staff'), updateOrderStatusController);
 app.use('/api', requireRole('warehouse_staff'), manageDriverInformationController);
 app.use('/api', requireRole('warehouse_staff'), updateDeliveryInformationController);
-app.use('/api', requireRole('warehouse_staff'), manageProductCategoryController);
-app.use('/api', requireRole('warehouse_staff'), manageProductBrandController);
+// Category/Brand routers apply requireRole('warehouse_staff') internally on
+// mutation routes only — their GET list routes stay open so Supervisors can
+// load category/brand lookups for the product filters (see 403 on
+// /api/brands from the Supervisor dashboard).
+app.use('/api', manageProductCategoryController);
+app.use('/api', manageProductBrandController);
 
 module.exports = app;

@@ -7,8 +7,7 @@ import { useState } from "react";
 const SIDEBAR_LINKS = [
   { label: "Dashboard", href: "/warehouse/dashboard" },
   { label: "Maintain Product", href: "/warehouse/maintain-products" },
-  { label: "Categories", href: "/warehouse/categories" },
-  { label: "Brands", href: "/warehouse/brands" },
+  { label: "Categories & Brands", href: "/warehouse/categories" },
   { label: "Order Details", href: "/warehouse/orders" },
   { label: "Drivers", href: "/warehouse/drivers" },
   { label: "Delivery Info", href: "/warehouse/delivery" },

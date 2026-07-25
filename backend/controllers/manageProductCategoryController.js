@@ -1,5 +1,6 @@
 const catModel = require('../models/prodCatModel');
 const express = require('express');
+const { requireRole } = require('../middleware/roleCheck');
 const router = express.Router();
 
 const MAX_LEN = 100;
@@ -101,11 +102,13 @@ async function selectRestoreProductCategory(req, res) {
   }
 }
 
+// Reading the category list is needed by Supervisors too (product filters/lookups),
+// so it stays open to any logged-in role. Only mutations are Warehouse Staff-only.
 router.get('/categories', viewCategoryList);
-router.get('/categories/deleted', viewDeletedCategoryList);
-router.post('/categories', selectAddNewProductCategory);
-router.put('/categories/:id', selectEditProductCategory);
-router.put('/categories/:id/restore', selectRestoreProductCategory);
-router.delete('/categories/:id', selectDeleteProductCategory);
+router.get('/categories/deleted', requireRole('warehouse_staff'), viewDeletedCategoryList);
+router.post('/categories', requireRole('warehouse_staff'), selectAddNewProductCategory);
+router.put('/categories/:id', requireRole('warehouse_staff'), selectEditProductCategory);
+router.put('/categories/:id/restore', requireRole('warehouse_staff'), selectRestoreProductCategory);
+router.delete('/categories/:id', requireRole('warehouse_staff'), selectDeleteProductCategory);
 
 module.exports = router;

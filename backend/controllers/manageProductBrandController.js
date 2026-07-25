@@ -1,5 +1,6 @@
 const brandModel = require('../models/prodBrandModel');
 const express = require('express');
+const { requireRole } = require('../middleware/roleCheck');
 const router = express.Router();
 
 const MAX_LEN = 50; // Special Requirement: brand name max character limit
@@ -100,11 +101,13 @@ async function selectRestoreProductBrand(req, res) {
   }
 }
 
+// Reading the brand list is needed by Supervisors too (product filters/lookups),
+// so it stays open to any logged-in role. Only mutations are Warehouse Staff-only.
 router.get('/brands', viewBrandList);
-router.get('/brands/deleted', viewDeletedBrandList);
-router.post('/brands', selectAddNewProductBrand);
-router.put('/brands/:id', selectEditProductBrand);
-router.put('/brands/:id/restore', selectRestoreProductBrand);
-router.delete('/brands/:id', selectDeleteProductBrand);
+router.get('/brands/deleted', requireRole('warehouse_staff'), viewDeletedBrandList);
+router.post('/brands', requireRole('warehouse_staff'), selectAddNewProductBrand);
+router.put('/brands/:id', requireRole('warehouse_staff'), selectEditProductBrand);
+router.put('/brands/:id/restore', requireRole('warehouse_staff'), selectRestoreProductBrand);
+router.delete('/brands/:id', requireRole('warehouse_staff'), selectDeleteProductBrand);
 
 module.exports = router;

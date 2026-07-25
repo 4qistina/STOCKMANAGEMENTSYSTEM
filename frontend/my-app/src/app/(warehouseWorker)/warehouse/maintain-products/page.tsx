@@ -11,6 +11,10 @@ interface Product {
   productModel: string;
   productPrice: number;
   handInStock: number;
+  // Warehouse quantity, managed here by Warehouse Staff. This is the
+  // ceiling on what a Supervisor can order, and it drives productStatus
+  // automatically (0 => "Not Available") — there is no manual status toggle.
+  productQuantity: number;
   productStatus: string;
   productImage?: string | null;
   prodCatLookupId?: number | null;
@@ -30,8 +34,7 @@ const EMPTY_FORM = {
   productCode: "",
   productModel: "",
   productPrice: "",
-  handInStock: "0",
-  productStatus: "Available",
+  productQuantity: "0",
   prodCatLookupId: "",
   prodBrandLookupId: "",
   productImage: "",
@@ -104,15 +107,18 @@ function ProductTile({ product, onClick }: { product: Product; onClick: () => vo
           <p className="font-mono text-[10px] uppercase tracking-wider text-slate-400">Price</p>
           <p className="text-base font-bold text-slate-900">{formatCurrency(product.productPrice)}</p>
         </div>
-        <span
-          className={`rounded-full border px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider ${
-            product.productStatus === "Available"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-              : "border-slate-200 bg-slate-100 text-slate-500"
-          }`}
-        >
-          {product.productStatus}
-        </span>
+        <div className="flex flex-col items-end gap-1">
+          <span
+            className={`rounded-full border px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider ${
+              product.productStatus === "Available"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-slate-200 bg-slate-100 text-slate-500"
+            }`}
+          >
+            {product.productStatus}
+          </span>
+          <span className="font-mono text-[10px] text-slate-400">{product.productQuantity} in warehouse</span>
+        </div>
       </div>
     </button>
   );
@@ -193,7 +199,7 @@ export default function MaintainProductPage() {
     setLoading(true);
     try {
       const [prodRes, catRes, brandRes] = await Promise.all([
-        fetch(`${API_BASE}/api/products/menu`),
+        fetch(`${API_BASE}/api/maintain-product/menu`),
         fetch(`${API_BASE}/api/categories`),
         fetch(`${API_BASE}/api/brands`),
       ]);
@@ -273,8 +279,7 @@ export default function MaintainProductPage() {
       productCode: p.productCode ?? "",
       productModel: p.productModel ?? "",
       productPrice: String(p.productPrice ?? ""),
-      handInStock: String(p.handInStock ?? "0"),
-      productStatus: p.productStatus ?? "Available",
+      productQuantity: String(p.productQuantity ?? "0"),
       prodCatLookupId: p.prodCatLookupId ? String(p.prodCatLookupId) : "",
       prodBrandLookupId: p.prodBrandLookupId ? String(p.prodBrandLookupId) : "",
       productImage: p.productImage ?? "",
@@ -293,12 +298,11 @@ export default function MaintainProductPage() {
   // just code/model/price, so a product can't be saved half-filled-in.
   function validate(): string | null {
     if (
-      !form.productCode.trim() ||
       !form.productModel.trim() ||
       !form.productPrice.trim() ||
       !form.prodCatLookupId ||
       !form.prodBrandLookupId ||
-      !form.productStatus ||
+      form.productQuantity.trim() === "" ||
       !form.productImage.trim()
     ) {
       return "Please fill in all required fields.";
@@ -306,11 +310,9 @@ export default function MaintainProductPage() {
     if (Number.isNaN(Number(form.productPrice)) || Number(form.productPrice) < 0) {
       return "Price must be a valid number.";
     }
-    // [E1: Duplicate Item] — same code, different product
-    const duplicate = products.find(
-      (p) => p.productCode.trim().toLowerCase() === form.productCode.trim().toLowerCase() && p.productID !== editingId
-    );
-    if (duplicate) return "A product with this code already exists.";
+    if (Number.isNaN(Number(form.productQuantity)) || Number(form.productQuantity) < 0) {
+      return "Warehouse quantity must be a valid, non-negative number.";
+    }
     return null;
   }
 
@@ -328,11 +330,9 @@ export default function MaintainProductPage() {
     setFormError(null);
     try {
       const body = {
-        productCode: form.productCode.trim(),
         productModel: form.productModel.trim(),
         productPrice: Number(form.productPrice),
-        handInStock: Number(form.handInStock) || 0,
-        productStatus: form.productStatus,
+        productQuantity: Number(form.productQuantity) || 0,
         prodCatLookupId: form.prodCatLookupId ? Number(form.prodCatLookupId) : null,
         prodBrandLookupId: form.prodBrandLookupId ? Number(form.prodBrandLookupId) : null,
         productImage: form.productImage.trim() || null,
@@ -593,6 +593,10 @@ export default function MaintainProductPage() {
                     {viewingProduct.productStatus}
                   </span>
                 </div>
+                <div className="mt-1 flex items-center gap-2 text-[13px]">
+                  <span className="text-slate-400">Warehouse Quantity:</span>
+                  <span className="font-semibold text-slate-700">{viewingProduct.productQuantity}</span>
+                </div>
               </div>
             </div>
 
@@ -682,13 +686,17 @@ export default function MaintainProductPage() {
               </div>
               <div>
                 <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                  Product Code *
+                  Product Code
                 </label>
-                <input
-                  value={form.productCode}
-                  onChange={(e) => setForm({ ...form, productCode: e.target.value })}
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm focus:border-sky-400 focus:outline-none"
-                />
+                {mode === "edit" ? (
+                  <div className="w-full rounded-lg border border-slate-200 bg-slate-100 px-3.5 py-2.5 font-mono text-sm text-slate-500">
+                    {form.productCode}
+                  </div>
+                ) : (
+                  <div className="w-full rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm italic text-slate-400">
+                    Generated automatically after you submit
+                  </div>
+                )}
               </div>
               <div>
                 <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-500">
@@ -751,16 +759,20 @@ export default function MaintainProductPage() {
               </div>
               <div>
                 <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                  Status *
+                  Warehouse Quantity *
                 </label>
-                <select
-                  value={form.productStatus}
-                  onChange={(e) => setForm({ ...form, productStatus: e.target.value })}
+                <input
+                  type="number"
+                  step="1"
+                  min="0"
+                  value={form.productQuantity}
+                  onChange={(e) => setForm({ ...form, productQuantity: e.target.value })}
                   className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm focus:border-sky-400 focus:outline-none"
-                >
-                  <option value="Available">Available</option>
-                  <option value="Not Available">Not Available</option>
-                </select>
+                />
+                <p className="mt-1 text-[11px] text-slate-400">
+                  How many units are on hand at the warehouse. This determines whether the product shows as
+                  Available to Supervisors — it isn't set manually.
+                </p>
               </div>
             </div>
 

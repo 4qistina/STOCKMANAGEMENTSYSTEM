@@ -18,6 +18,11 @@ async function findByUser(userId, client = pool) {
   return result.rows;
 }
 
+async function findByDeliveryId(deliveryId, client = pool) {
+  const result = await client.query('SELECT * FROM orders WHERE "deliveryId" = $1', [deliveryId]);
+  return result.rows[0];
+}
+
 // Full order detail for the "View Order Details" use case: order info,
 // each line item (Category, Model, Brand, Price, Quantity), and — once the
 // warehouse has fulfilled it — delivery info (Delivery Date, Delivered Date,
@@ -124,6 +129,7 @@ module.exports = {
   findAll,
   findById,
   findByUser,
+  findByDeliveryId,
   findDetailedByUser,
   findAllDetailed,
   insert,

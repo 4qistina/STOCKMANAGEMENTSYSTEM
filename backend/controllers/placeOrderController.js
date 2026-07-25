@@ -17,7 +17,8 @@ async function viewProduct(req, res) {
 }
 
 // POST /api/place-order
-// Business logic: validate cart, create order, insert line items, decrement stock.
+// Business logic: validate cart, create order, insert line items as 'Pending'.
+// Stock is deducted later, when a Warehouse Staff member approves the order.
 // items = [{ productId, quantity }]
 async function placeOrder(req, res) {
   const { userId, items } = req.body;
@@ -51,10 +52,17 @@ async function placeOrder(req, res) {
         throw new Error(`"${product.productModel}" is not available and cannot be ordered.`);
       }
 
-      // Note: intentionally NOT blocked by handInStock here. A Supervisor's
-      // order is a restock request sent to the Warehouse for review — being
-      // low (or completely out of) stock is exactly why they'd place an
-      // order, not a reason to prevent it.
+      // A Supervisor's order draws from the WAREHOUSE's productQuantity, so
+      // it can never request more than the warehouse actually has on hand.
+      // (This is separate from — and intentionally NOT blocked by — the
+      // Supervisor's own retail handInStock, which is just how much they
+      // currently have on their shelves and is exactly why they'd be
+      // placing a restock order in the first place.)
+      if (item.quantity > product.productQuantity) {
+        throw new Error(
+          `Only ${product.productQuantity} unit(s) of "${product.productModel}" are available at the warehouse.`
+        );
+      }
     }
 
     // Simplified order numbers: previously 'ORD-' + Date.now() produced an
@@ -65,25 +73,17 @@ async function placeOrder(req, res) {
     const orderNumber = `ORD${order.orderID}`;
     order = await orderModel.setOrderNumber(order.orderID, orderNumber, client);
 
+    // Note: stock is intentionally NOT deducted here. Placing an order just
+    // records the request as 'Pending' — the warehouse's productQuantity is
+    // only decremented once a Warehouse Staff member approves it (see
+    // updateOrderStatusController), so a pile of unreviewed requests can
+    // never understate real stock on hand.
     for (const item of items) {
-      const product = await productModel.findById(item.productId, client);
-
       await orderProductModel.insert(
         {
           orderId: order.orderID,
           productId: item.productId,
           orderProductQuantity: item.quantity,
-        },
-        client
-      );
-
-      await productModel.update(
-        item.productId,
-        {
-          ...product,
-          // Floored at 0: since orders are no longer capped by handInStock,
-          // a large restock order should never push it negative.
-          handInStock: Math.max(0, product.handInStock - item.quantity),
         },
         client
       );

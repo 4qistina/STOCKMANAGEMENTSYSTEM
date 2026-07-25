@@ -54,49 +54,74 @@ async function findAvailable(category, brand, model, client = pool) {
   return result.rows;
 }
 
-// Insert a new product including the optional "productImage"
+// Insert a new product including the optional "productImage".
+// "productQuantity" is the WAREHOUSE quantity (set by Warehouse Staff). It
+// drives "productStatus" automatically — a product with 0 units on hand at
+// the warehouse can't be Available for a Supervisor to order — so any
+// "productStatus" passed in the request body is ignored in favor of this
+// server-computed value.
+// "productCode" is generated here too, not supplied by the caller — the
+// final code embeds the new row's productID, which isn't known until after
+// the insert, so this writes a placeholder first and then stamps on the
+// real code (PRD<productID>). Same two-step approach used for order numbers
+// (ORD<orderID>) in placeOrderController.
 async function insert(data, client = pool) {
   const {
-    productCode,
     productModel,
     productPrice,
     handInStock,
-    productStatus,
+    productQuantity,
     prodCatLookupId,
     prodBrandLookupId,
     productImage
   } = data;
 
-  const result = await client.query(
+  const qty = Number(productQuantity) || 0;
+  const productStatus = qty > 0 ? 'Available' : 'Not Available';
+
+  const inserted = await client.query(
     `INSERT INTO products
-      ("productCode", "productModel", "productPrice", "handInStock", "productStatus", "prodCatLookupId", "prodBrandLookupId", "productImage")
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      ("productCode", "productModel", "productPrice", "handInStock", "productQuantity", "productStatus", "prodCatLookupId", "prodBrandLookupId", "productImage")
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
     [
-      productCode,
+      `TEMP-${Date.now()}`,
       productModel,
       productPrice,
-      handInStock,
-      productStatus || 'Available',
+      handInStock || 0,
+      qty,
+      productStatus,
       prodCatLookupId,
       prodBrandLookupId,
       productImage || null
     ]
   );
+
+  const productCode = `PRD${String(inserted.rows[0].productID).padStart(4, '0')}`;
+  const result = await client.query(
+    `UPDATE products SET "productCode" = $1 WHERE "productID" = $2 RETURNING *`,
+    [productCode, inserted.rows[0].productID]
+  );
   return result.rows[0];
 }
 
-// Update an existing product including the optional "productImage"
+// Update an existing product including the optional "productImage".
+// "productQuantity" (warehouse quantity) drives "productStatus"
+// automatically — same rule as insert() above — so any "productStatus"
+// passed in is ignored in favor of the server-computed value.
 async function update(productID, data, client = pool) {
   const {
     productCode,
     productModel,
     productPrice,
     handInStock,
-    productStatus,
+    productQuantity,
     prodCatLookupId,
     prodBrandLookupId,
     productImage
   } = data;
+
+  const qty = Number(productQuantity) || 0;
+  const productStatus = qty > 0 ? 'Available' : 'Not Available';
 
   const result = await client.query(
     `UPDATE products SET
@@ -104,21 +129,23 @@ async function update(productID, data, client = pool) {
       "productModel" = $2,
       "productPrice" = $3,
       "handInStock" = $4,
-      "productStatus" = $5,
-      "prodCatLookupId" = $6,
-      "prodBrandLookupId" = $7,
-      "productImage" = $8
-     WHERE "productID" = $9 RETURNING *`,
+      "productQuantity" = $5,
+      "productStatus" = $6,
+      "prodCatLookupId" = $7,
+      "prodBrandLookupId" = $8,
+      "productImage" = $9
+     WHERE "productID" = $10 RETURNING *`,
     [
       productCode,
       productModel,
       productPrice,
-      handInStock,
+      handInStock || 0,
+      qty,
       productStatus,
       prodCatLookupId,
       prodBrandLookupId,
-      productImage || null, // $8
-      productID              // $9
+      productImage || null, // $9
+      productID              // $10
     ]
   );
   return result.rows[0];

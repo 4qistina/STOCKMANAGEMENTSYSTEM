@@ -17,6 +17,8 @@ interface Product {
   productModel?: string;
   productPrice?: number;
   handInStock?: number;
+  // Warehouse quantity — this is what actually gates ordering on this page.
+  productQuantity?: number;
   productImage?: string;
   productStatus?: string;
   categoryName?: string;
@@ -41,7 +43,7 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
   const cardKey = product.productID ?? `product-index-${index}`;
   const targetProductId = product.productID ?? 0;
 
-  const currentStock = product.handInStock ?? 0;
+  const currentStock = product.productQuantity ?? 0;
   const isLowStock = currentStock <= 5;
   const isOutOfStock = currentStock === 0;
   const isUnavailable = product.productStatus === "Not Available";
@@ -81,7 +83,7 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
           </span>
         ) : isLowStock ? (
           <span className="absolute left-2.5 top-2.5 rounded-md bg-amber-500 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-white">
-            Low Stock ({currentStock})
+            Low Warehouse Stock ({currentStock})
           </span>
         ) : null}
 

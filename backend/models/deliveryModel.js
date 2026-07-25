@@ -1,12 +1,12 @@
 const pool = require('../configuration/db');
 
-async function findById(deliveryId) {
-  const result = await pool.query('SELECT * FROM delivery WHERE "deliveryId" = $1', [deliveryId]);
+async function findById(deliveryId, client = pool) {
+  const result = await client.query('SELECT * FROM delivery WHERE "deliveryId" = $1', [deliveryId]);
   return result.rows[0];
 }
 
-async function insert({ deliveryDate, recipientName, driverId }) {
-  const result = await pool.query(
+async function insert({ deliveryDate, recipientName, driverId }, client = pool) {
+  const result = await client.query(
     `INSERT INTO delivery ("deliveryDate", "deliveryStatus", "recipientName", "driverId")
      VALUES ($1, 'Pending', $2, $3) RETURNING *`,
     [deliveryDate, recipientName, driverId]
@@ -14,8 +14,8 @@ async function insert({ deliveryDate, recipientName, driverId }) {
   return result.rows[0];
 }
 
-async function update(deliveryId, { deliveryDate, deliveryStatus, deliveredDate, recipientName, driverId }) {
-  const result = await pool.query(
+async function update(deliveryId, { deliveryDate, deliveryStatus, deliveredDate, recipientName, driverId }, client = pool) {
+  const result = await client.query(
     `UPDATE delivery SET
       "deliveryDate" = COALESCE($1, "deliveryDate"),
       "deliveryStatus" = COALESCE($2, "deliveryStatus"),
@@ -28,8 +28,8 @@ async function update(deliveryId, { deliveryDate, deliveryStatus, deliveredDate,
   return result.rows[0];
 }
 
-async function remove(deliveryId) {
-  await pool.query('DELETE FROM delivery WHERE "deliveryId" = $1', [deliveryId]);
+async function remove(deliveryId, client = pool) {
+  await client.query('DELETE FROM delivery WHERE "deliveryId" = $1', [deliveryId]);
 }
 
 module.exports = { findById, insert, update, remove };

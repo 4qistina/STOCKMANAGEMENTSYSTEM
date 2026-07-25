@@ -46,7 +46,7 @@ export default function Navbar() {
             <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-slate-400">
               System
             </span>
-            <span className="font-mono text-xs tracking-[0.08em] text-sky-600">STOCK-MGMT</span>
+            <span className="font-mono text-xs tracking-[0.08em] text-sky-600">UTZSHOP</span>
           </div>
 
           <Link
@@ -99,7 +99,7 @@ export default function Navbar() {
                   System
                 </span>
                 <span className="font-mono text-xs tracking-[0.08em] text-sky-600">
-                  STOCK-MGMT
+                  UTZSHOP
                 </span>
               </div>
               <button

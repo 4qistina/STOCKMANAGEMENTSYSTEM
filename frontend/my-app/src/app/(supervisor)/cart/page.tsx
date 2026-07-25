@@ -100,6 +100,14 @@ export default function CartPage() {
         throw new Error("Please enter a value greater than 0");
       }
 
+      // Can't order more than the warehouse currently has on hand
+      const overWarehouseStock = selectedItems.find((i) => i.quantity > (i.productQuantity ?? 0));
+      if (overWarehouseStock) {
+        throw new Error(
+          `Only ${overWarehouseStock.productQuantity} unit(s) of "${overWarehouseStock.productModel}" are available from the warehouse.`
+        );
+      }
+
       const res = await fetch(`${API_BASE}/api/place-order`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -313,11 +321,11 @@ export default function CartPage() {
                   <span>•</span>
                   {item.productStatus === "Not Available" ? (
                     <span className="font-semibold text-slate-500">Not Available</span>
-                  ) : item.handInStock === 0 ? (
+                  ) : item.productQuantity === 0 ? (
                     <span className="font-semibold text-rose-600">Out of Stock</span>
                   ) : (
                     <span className="font-semibold text-emerald-600">
-                      {item.handInStock} in stock
+                      {item.productQuantity} available from warehouse
                     </span>
                   )}
                 </div>
@@ -330,6 +338,7 @@ export default function CartPage() {
               <div className="flex flex-1 items-center justify-end gap-4">
                 <Stepper
                   value={item.quantity}
+                  max={item.productQuantity || 1}
                   onChange={(next) => updateQuantity(item.productID, next)}
                 />
                 <p className="w-20 text-right text-sm font-bold text-slate-900">

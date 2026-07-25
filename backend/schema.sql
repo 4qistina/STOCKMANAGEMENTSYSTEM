@@ -51,6 +51,15 @@ CREATE TABLE prodbrand_lookup (
 );
 
 -- ===== products =====
+-- "productQuantity" = how many units the WAREHOUSE has on hand. Managed by
+--   Warehouse Staff (Maintain Product). This is the ceiling on how much a
+--   Supervisor may order, and it drives "productStatus" automatically
+--   (0 => Not Available). Deducted when a Warehouse Staff member approves
+--   an order.
+-- "handInStock"     = how many units a RETAIL location (Supervisor) has on
+--   hand. Managed by the Supervisor (Update Product Stock), completely
+--   independent of "productQuantity". Supervisors place orders against
+--   "productQuantity" to restock this value.
 CREATE TABLE products (
   "productID"         SERIAL PRIMARY KEY,
   "productCode"       VARCHAR(50) NOT NULL,
@@ -58,6 +67,7 @@ CREATE TABLE products (
   "productPrice"      DECIMAL(10,2) NOT NULL,
   "productImage"      TEXT DEFAULT NULL,
   "handInStock"       INT NOT NULL DEFAULT 0,
+  "productQuantity"   INT NOT NULL DEFAULT 0,
   "productStatus"     VARCHAR(20) NOT NULL DEFAULT 'Available',
   "prodCatLookupId"   INT REFERENCES prodcat_lookup("prodCatLookupId"),
   "prodBrandLookupId" INT REFERENCES prodbrand_lookup("prodBrandLookupId"),
@@ -81,3 +91,13 @@ CREATE TABLE orderproduct (
 -- ALTER TABLE prodcat_lookup   ADD COLUMN "isDeleted" BOOLEAN NOT NULL DEFAULT FALSE;
 -- ALTER TABLE prodbrand_lookup ADD COLUMN "isDeleted" BOOLEAN NOT NULL DEFAULT FALSE;
 -- ALTER TABLE driver           ADD COLUMN "isDeleted" BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- ============================================================
+-- If you already have "products" created and just need to add the
+-- warehouse quantity column, run this instead of recreating everything:
+-- ============================================================
+-- ALTER TABLE products ADD COLUMN "productQuantity" INT NOT NULL DEFAULT 0;
+-- -- Optional one-time backfill if you'd like existing rows to start out
+-- -- Available/Not Available based on their current handInStock value:
+-- -- UPDATE products SET "productQuantity" = "handInStock";
+-- -- UPDATE products SET "productStatus" = CASE WHEN "productQuantity" > 0 THEN 'Available' ELSE 'Not Available' END;

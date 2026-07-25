@@ -2,9 +2,23 @@ const productModel = require('../models/productModel');
 const express = require('express');
 const router = express.Router();
 
-// Note: listing all products and looking one up by ID live in
-// viewProductDetailsController.js (selectProductMenu / viewDetails) — this
-// controller only handles create/update/delete/restore.
+async function viewProductMenu(req, res) {
+  try {
+    res.json(await productModel.findAll());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+async function searchProduct(req, res) {
+  try {
+    const product = await productModel.findById(req.params.id);
+    if (!product) return res.status(404).json({ error: 'Product not found' });
+    res.json(product);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
 
 async function selectAddNewProduct(req, res) {
   try {
@@ -70,7 +84,9 @@ async function selectRestoreProduct(req, res) {
   }
 }
 
+router.get('/maintain-product/menu', viewProductMenu);
 router.get('/maintain-product/deleted', viewDeletedProductList);
+router.get('/maintain-product/search/:id', searchProduct);
 router.post('/maintain-product', selectAddNewProduct);
 router.put('/maintain-product/:id', selectEditProductDetails);
 router.put('/maintain-product/:id/restore', selectRestoreProduct);

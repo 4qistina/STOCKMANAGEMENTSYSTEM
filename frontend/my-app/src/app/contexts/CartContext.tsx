@@ -9,6 +9,10 @@ export interface CartItem {
   productPrice: number;
   productImage?: string;
   handInStock: number;
+  // Warehouse quantity: how many units the warehouse has on hand. This is
+  // the ceiling on how much of this product can be ordered — separate from
+  // "handInStock", which is just the Supervisor's own retail count.
+  productQuantity: number;
   productStatus?: string;
   quantity: number;
 }
@@ -66,10 +70,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return { ok: false, error: "Please enter a value greater than 0" };
     }
 
-    // Note: order quantity is intentionally NOT capped by the Supervisor's
-    // current handInStock. Placing an order is how a retail location restocks
-    // when it's running low (or out) — handInStock is just an on-screen
-    // indicator, not a ceiling on what can be requested from the warehouse.
+    // An order draws from the WAREHOUSE's productQuantity, so the cart can
+    // never hold more of an item than the warehouse actually has on hand.
+    // (This is intentionally NOT capped by handInStock — a retail location
+    // being low/out of stock is exactly why a Supervisor would order more.)
+    const warehouseQty = product.productQuantity ?? 0;
+    const existingQty = items.find((i) => i.productID === product.productID)?.quantity ?? 0;
+    if (existingQty + quantity > warehouseQty) {
+      const remaining = Math.max(0, warehouseQty - existingQty);
+      return {
+        ok: false,
+        error:
+          remaining > 0
+            ? `Only ${remaining} more unit(s) available from the warehouse.`
+            : `No more units available from the warehouse (${warehouseQty} already in your cart).`,
+      };
+    }
 
     setItems((prev) => {
       const existing = prev.find((i) => i.productID === product.productID);
@@ -88,7 +104,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
   function updateQuantity(productID: number, quantity: number) {
     setItems((prev) =>
       prev
-        .map((i) => (i.productID === productID ? { ...i, quantity } : i))
+        .map((i) =>
+          i.productID === productID
+            ? { ...i, quantity: Math.min(quantity, i.productQuantity ?? quantity) }
+            : i
+        )
         .filter((i) => i.quantity > 0)
     );
   }

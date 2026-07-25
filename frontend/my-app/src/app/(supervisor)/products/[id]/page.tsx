@@ -13,6 +13,7 @@ interface Product {
   productModel?: string;
   productPrice?: number;
   handInStock?: number;
+  productQuantity?: number;
   productImage?: string;
   productStatus?: string;
   categoryName?: string;
@@ -146,7 +147,7 @@ export default function ProductDetailPage() {
                     Not Available
                   </span>
                 )}
-                {product.handInStock === 0 && product.productStatus !== "Not Available" && (
+                {(product.productQuantity ?? 0) === 0 && product.productStatus !== "Not Available" && (
                   <span className="absolute left-3 top-3 rounded-md bg-rose-600 px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-white">
                     Out of Stock
                   </span>
@@ -179,11 +180,11 @@ export default function ProductDetailPage() {
                   <span className="text-slate-400">Availability:</span>
                   {product.productStatus === "Not Available" ? (
                     <span className="font-semibold text-slate-600">Not Available</span>
-                  ) : (product.handInStock ?? 0) === 0 ? (
+                  ) : (product.productQuantity ?? 0) === 0 ? (
                     <span className="font-semibold text-rose-600">Out of Stock</span>
                   ) : (
                     <span className="font-semibold text-emerald-600">
-                      {product.handInStock} unit{product.handInStock === 1 ? "" : "s"} in stock
+                      {product.productQuantity} unit{product.productQuantity === 1 ? "" : "s"} available from warehouse
                     </span>
                   )}
                 </div>
@@ -201,6 +202,7 @@ export default function ProductDetailPage() {
                       productPrice: Number(product.productPrice ?? 0),
                       productImage: product.productImage,
                       handInStock: product.handInStock ?? 0,
+                      productQuantity: product.productQuantity ?? 0,
                       productStatus: product.productStatus,
                     }}
                   />

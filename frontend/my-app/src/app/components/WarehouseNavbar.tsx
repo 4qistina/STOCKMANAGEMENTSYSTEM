@@ -42,7 +42,7 @@ export default function WarehouseNavbar() {
 
           <div className="flex flex-1 flex-col gap-0.5">
             <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-slate-400">System</span>
-            <span className="font-mono text-xs tracking-[0.08em] text-sky-600">STOCK-MGMT</span>
+            <span className="font-mono text-xs tracking-[0.08em] text-sky-600">UTZSHOP</span>
           </div>
 
           <div className="hidden flex-col items-end gap-0.5 sm:flex">
@@ -67,7 +67,7 @@ export default function WarehouseNavbar() {
             <div className="mb-6 flex flex-shrink-0 items-center justify-between">
               <div className="flex flex-col gap-0.5">
                 <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-slate-400">System</span>
-                <span className="font-mono text-xs tracking-[0.08em] text-sky-600">STOCK-MGMT</span>
+                <span className="font-mono text-xs tracking-[0.08em] text-sky-600">UTZSHOP</span>
               </div>
               <button
                 type="button"

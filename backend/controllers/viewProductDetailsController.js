@@ -45,8 +45,94 @@ async function viewDetails(req, res) {
   }
 }
 
-// Note: adding, updating, and deleting products live in
-// maintainProductController.js — this controller stays read-only (view/search).
+/**
+ * POST /api/products
+ * Adds a new product - now securely capturing 'productImage'
+ */
+async function addProduct(req, res) {
+  try {
+    const { 
+      productModel: modelName, // mapped to model property
+      productPrice, 
+      handInStock, 
+      productQuantity,
+      prodCatLookupId, 
+      prodBrandLookupId,
+      productImage // <-- Captured from request body
+    } = req.body;
+
+    // Validate required fields
+    if (!modelName || productPrice === undefined) {
+      return res.status(400).json({ error: 'Missing required product details' });
+    }
+
+    const newProduct = await productModel.insert({
+      productModel: modelName,
+      productPrice,
+      handInStock: handInStock || 0,
+      productQuantity: productQuantity || 0,
+      prodCatLookupId,
+      prodBrandLookupId,
+      productImage // <-- Passed down to updated DB model
+    });
+
+    res.status(201).json(newProduct);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+/**
+ * PUT /api/products/:id
+ * Updates an existing product - handles 'productImage' updates
+ */
+async function updateProduct(req, res) {
+  try {
+    const { id } = req.params;
+    const { 
+      productCode, 
+      productModel: modelName, 
+      productPrice, 
+      handInStock, 
+      productQuantity, 
+      prodCatLookupId, 
+      prodBrandLookupId,
+      productImage // <-- Captured from update request
+    } = req.body;
+
+    const updatedProduct = await productModel.update(id, {
+      productCode,
+      productModel: modelName,
+      productPrice,
+      handInStock,
+      productQuantity,
+      prodCatLookupId,
+      prodBrandLookupId,
+      productImage // <-- Sent down to updated DB model
+    });
+
+    if (!updatedProduct) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    res.json(updatedProduct);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+/**
+ * DELETE /api/products/:id
+ * Deletes a product
+ */
+async function deleteProduct(req, res) {
+  try {
+    await productModel.remove(req.params.id);
+    res.json({ message: 'Product successfully deleted' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
 
 router.get('/products/menu', selectProductMenu);
 router.get('/products/search', searchProduct);

@@ -9,9 +9,10 @@ interface AddToCartControlProps {
 
 // A product with low or zero handInStock is exactly why a Supervisor would
 // place an order — it is a "you should reorder this" signal, not a reason to
-// block ordering. Only productStatus === "Not Available" (set by Warehouse
-// Staff via Maintain Product) actually prevents adding it to the cart, per
-// UCD400's [E1] exception.
+// block ordering. Only productStatus === "Not Available" (set automatically
+// once the warehouse's productQuantity hits 0) actually prevents adding it
+// to the cart, per UCD400's [E1] exception. The quantity itself IS capped by
+// productQuantity — a Supervisor can never order more than the warehouse has.
 export default function AddToCartControl({ product }: AddToCartControlProps) {
   const { addItem } = useCart();
   const [quantity, setQuantity] = useState(1);
@@ -19,6 +20,7 @@ export default function AddToCartControl({ product }: AddToCartControlProps) {
   const [added, setAdded] = useState(false);
 
   const isUnavailable = product.productStatus === "Not Available";
+  const maxQuantity = product.productQuantity ?? 0;
 
   function handleAdd() {
     const result = addItem(product, quantity);
@@ -55,6 +57,7 @@ export default function AddToCartControl({ product }: AddToCartControlProps) {
         <input
           type="number"
           min={1}
+          max={maxQuantity || undefined}
           value={quantity}
           onChange={(e) => handleQuantityChange(e.target.value)}
           className="w-16 rounded-md border border-slate-200 px-2 py-1.5 text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
@@ -69,6 +72,7 @@ export default function AddToCartControl({ product }: AddToCartControlProps) {
           {added ? "Added ✓" : "Add to Cart"}
         </button>
       </div>
+      <p className="text-[11px] text-slate-400">{maxQuantity} available from warehouse</p>
       {error && <p className="text-[11px] font-medium text-rose-600">{error}</p>}
     </div>
   );
